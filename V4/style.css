@@ -1,0 +1,112 @@
+/**
+ * style.css
+ * Variables et styles globaux.
+ */
+:root {
+    --font-title: 'Anton', sans-serif;
+    --font-body: 'Roboto', sans-serif;
+    --color-primary: #BFA98D;
+    --color-secondary: #212121;
+    --color-background: #F5F5F5;
+    --color-text: #212121;
+    --color-container: #ffffff;
+    --color-border: #e0e0e0;
+    --shadow-soft: 0 4px 12px rgba(0,0,0,0.07);
+    --shadow-lifted: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--color-background);
+    color: var(--color-text);
+    margin: 0;
+    padding: 0;
+}
+
+.app-header {
+    background-color: var(--color-secondary);
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+h1 {
+    font-family: var(--font-title);
+    color: #fff;
+    margin: 0;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+h1 span { color: var(--color-primary); }
+
+/* Styles pour les cartes du Dashboard */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.nav-card {
+    background: var(--color-container);
+    border-radius: 15px;
+    padding: 30px;
+    text-align: center;
+    text-decoration: none;
+    color: var(--color-text);
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid var(--color-border);
+}
+
+.nav-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lifted);
+}
+
+.nav-card svg {
+    width: 50px;
+    height: 50px;
+    margin-bottom: 15px;
+    fill: var(--color-primary);
+}
+
+.nav-card span {
+    display: block;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+/* --- FIX : Icônes du Header (Boutons et Liens) --- */
+.btn-icon {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    background: transparent;
+    border: none;
+    color: var(--color-text-on-dark);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+    text-decoration: none; /* Enlève le soulignement des liens */
+}
+
+/* Force la taille de l'icône, qu'elle soit dans un <button> ou un <a> */
+.btn-icon svg {
+    width: 24px !important;
+    height: 24px !important;
+    fill: currentColor;
+}
+
+.btn-icon:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* S'assure que le mode sombre s'applique aussi aux liens */
+body.crab-mode .header-right .btn-icon,
+body.crab-mode .header-right a.btn-icon {
+    color: #212121;
+}
