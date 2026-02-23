@@ -1,7 +1,6 @@
 /**
  * interaction.js
- * Gère les entrées utilisateurs (Souris/Tactile).
- * CORRECTION SCROLL MOBILE : On ne bloque le scroll que si on dessine.
+ * Gère les entrées utilisateurs (Souris/Tactile) et tous les outils V3.
  */
 
 window.ORB.interactions = {
@@ -14,8 +13,7 @@ window.ORB.interactions = {
         window.addEventListener("mousemove", this.handleMove.bind(this));
         window.addEventListener("mouseup", this.handleEnd.bind(this));
 
-        // Tactile
-        // Note : On garde { passive: false } pour pouvoir empêcher le scroll quand on dessine
+        // Tactile (On garde passive: false pour empêcher le scroll quand on dessine)
         canvas.addEventListener("touchstart", this.handleStart.bind(this), { passive: false });
         window.addEventListener("touchmove", this.handleMove.bind(this), { passive: false });
         window.addEventListener("touchend", this.handleEnd.bind(this));
@@ -25,20 +23,33 @@ window.ORB.interactions = {
     },
 
     getEventPos: function(e) {
+        // NOUVEAU V4 : Fonction ultra-précise pour le responsive
+        const canvas = window.ORB.canvas;
+        const rect = canvas.getBoundingClientRect();
+        const isHalf = document.body.classList.contains('view-half-court');
+        const viewWidth = isHalf ? 140 : 280;
+
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+
         if (e.touches && e.touches.length > 0) {
-            return window.ORB.utils.getLogicalCoords({
-                clientX: e.touches[0].clientX,
-                clientY: e.touches[0].clientY
-            });
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
         }
-        return window.ORB.utils.getLogicalCoords(e);
+
+        if (window.ORB_UTILS && window.ORB_UTILS.getLogicalCoords) {
+            return window.ORB_UTILS.getLogicalCoords({ clientX, clientY }, rect, viewWidth);
+        } else {
+            return {
+                x: ((clientX - rect.left) / rect.width) * viewWidth,
+                y: ((clientY - rect.top) / rect.height) * 150
+            };
+        }
     },
 
     // --- DÉBUT DE L'ACTION ---
     handleStart: function(e) {
-        // Bloque le scroll uniquement si on touche le CANEVAS (le terrain)
         if (e.type === 'touchstart') e.preventDefault();
-        
         if (e.button === 2) return; 
 
         const appState = window.ORB.appState;
@@ -50,9 +61,9 @@ window.ORB.interactions = {
 
         const pathTools = ['arrow', 'pass', 'dribble', 'screen', 'pencil'];
         const dragTools = ['zone'];
+        // TOUS LES OUTILS INCLUS :
         const singleClickTools = ['player', 'defender', 'ball', 'cone', 'hoop', 'basket'];
 
-        // 1. MODE STYLET : Tracé libre immédiat
         if (appState.inputMode === 'stylus' && pathTools.includes(appState.currentTool)) {
             this.finalizeCurrentPath(); 
             appState.isDrawing = true;
@@ -61,7 +72,6 @@ window.ORB.interactions = {
             return; 
         }
 
-        // 2. MODE SOURIS : Point à Point
         if (appState.inputMode === 'mouse' && pathTools.includes(appState.currentTool)) {
             if (!appState.isDrawing) {
                 appState.isDrawing = true;
@@ -70,14 +80,12 @@ window.ORB.interactions = {
                 appState.currentPath.push(logicalPos);
             }
         } 
-        // 3. Outils Drag (Zone)
         else if (dragTools.includes(appState.currentTool)) {
             appState.tempElement = {
                 type: appState.currentTool,
                 x: logicalPos.x, y: logicalPos.y, width: 0, height: 0, color: '#FFEB3B'
             };
         } 
-        // 4. Sélection ou Clic simple ou TEXTE
         else {
             this.finalizeCurrentPath(); 
             
@@ -115,42 +123,26 @@ window.ORB.interactions = {
     handleMove: function(e) {
         const appState = window.ORB.appState;
         
-        // --- CORRECTIF SCROLL MOBILE ---
-        // Si c'est un mouvement tactile (touchmove)
         if (e.type === 'touchmove') {
-            // Si on n'est PAS en train d'appuyer (pas de dessin en cours),
-            // on arrête la fonction ici et on laisse le navigateur scroller.
             if (!appState.isMouseDown) return;
-
-            // Sinon (on appuie), on bloque le scroll pour dessiner
             e.preventDefault();
         }
-        // -------------------------------
 
         if (!appState.isMouseDown && appState.inputMode !== 'mouse') return; 
 
-        let logicalPos;
-        if (e.touches && e.touches.length > 0) {
-            logicalPos = window.ORB.utils.getLogicalCoords({
-                clientX: e.touches[0].clientX, clientY: e.touches[0].clientY
-            });
-        } else {
-            logicalPos = window.ORB.utils.getLogicalCoords(e);
-        }
+        const logicalPos = this.getEventPos(e);
         appState.lastMousePos = logicalPos;
 
-        // MODE STYLET : Lissage
         if (appState.inputMode === 'stylus' && appState.isDrawing && appState.isMouseDown) {
             const lastP = appState.currentPath[appState.currentPath.length - 1];
             if (lastP) {
                 const dist = Math.hypot(logicalPos.x - lastP.x, logicalPos.y - lastP.y);
-                if (dist > appState.smoothingDistance) {
+                if (dist > (appState.smoothingDistance || 2)) {
                     appState.currentPath.push(logicalPos);
                 }
             }
         }
 
-        // Dragging
         if (appState.currentTool === 'select' && appState.selectedElement && appState.isMouseDown) {
             if (!appState.isDragging) {
                 if (Math.hypot(logicalPos.x - appState.startDragPos.x, logicalPos.y - appState.startDragPos.y) > 3) {
@@ -173,7 +165,6 @@ window.ORB.interactions = {
             }
         }
         
-        // Zone rect
         if (appState.tempElement && appState.tempElement.type === 'zone') {
             appState.tempElement.width = logicalPos.x - appState.tempElement.x;
             appState.tempElement.height = logicalPos.y - appState.tempElement.y;
@@ -187,7 +178,6 @@ window.ORB.interactions = {
         const appState = window.ORB.appState;
         if (!appState.isMouseDown) return;
 
-        // MODE STYLET : Fin du trait
         if (appState.inputMode === 'stylus' && appState.isDrawing) {
             this.finalizeCurrentPath();
         }
@@ -207,7 +197,6 @@ window.ORB.interactions = {
                 window.ORB.commitState();
             }
             
-            // SUPPRESSION (Drag Out)
             const currentPos = appState.lastMousePos;
             const width = window.ORB.CONSTANTS.LOGICAL_WIDTH;
             const height = window.ORB.CONSTANTS.LOGICAL_HEIGHT;
@@ -223,7 +212,6 @@ window.ORB.interactions = {
                 window.ORB.commitState();
                 window.ORB.ui.updatePropertiesPanel();
             }
-            // Lien Ballon
             else if (appState.selectedElement && appState.selectedElement.type === 'ball') {
                 const elements = window.ORB.playbookState.scenes[window.ORB.playbookState.activeSceneIndex].elements;
                 const playerBelow = elements.find(el => el.type === 'player' && Math.hypot(el.x - currentPos.x, el.y - currentPos.y) < 10);
@@ -295,7 +283,8 @@ window.ORB.interactions = {
                     if (logicalPoint.x >= el.x && logicalPoint.x <= el.x + el.width && logicalPoint.y >= el.y && logicalPoint.y <= el.y + el.height) return el;
                 } else if (pathTools.includes(el.type)) {
                     for (let j = 0; j < el.points.length - 1; j++) {
-                        if (window.ORB.utils.getDistanceToSegment(logicalPoint, el.points[j], el.points[j + 1]) < 8) return el;
+                        let getDistFn = window.ORB_UTILS ? window.ORB_UTILS.getDistanceToSegment : window.ORB.utils.getDistanceToSegment;
+                        if (getDistFn(logicalPoint, el.points[j], el.points[j + 1]) < 8) return el;
                     }
                 } else {
                     if (Math.hypot(logicalPoint.x - el.x, logicalPoint.y - el.y) < CLICK_RADIUS) return el;
@@ -332,7 +321,7 @@ window.ORB.interactions = {
             return; 
         }
         
-        const logicalPos = window.ORB.utils.getLogicalCoords(e);
+        const logicalPos = this.getEventPos(e);
         const clickedElement = this.getElementAtPosition(logicalPos);
         if (clickedElement && clickedElement.type === 'player') {
             const elements = window.ORB.playbookState.scenes[window.ORB.playbookState.activeSceneIndex].elements;
@@ -363,7 +352,6 @@ window.ORB.interactions = {
             this.finalizeCurrentPath();
             window.ORB.renderer.redrawCanvas();
         } else if ((e.key === "Delete" || e.key === "Backspace") && appState.selectedElement) {
-            // Suppression clavier maintenue
             let elements = window.ORB.playbookState.scenes[window.ORB.playbookState.activeSceneIndex].elements;
             if (appState.selectedElement.type === 'player') {
                 const balls = elements.filter(b => b.type === 'ball' && b.linkedTo === appState.selectedElement.id);

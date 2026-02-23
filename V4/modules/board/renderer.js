@@ -1,15 +1,27 @@
 /**
  * renderer.js
- * Gère le dessin sur le Canvas.
- * CORRECTION : Polices sécurisées pour l'export PDF (Arial fallback).
+ * Gère le dessin sur le Canvas (V4 avec tous les outils V3)
  */
 
 window.ORB.renderer = {
     
+    // NOUVEAU V4 : Fonction utilitaire indispensable pour le responsive et le demi-terrain
+    getPixelCoords: function(logicalPoint) {
+        if (!window.ORB.canvas) return logicalPoint;
+        const rect = window.ORB.canvas.getBoundingClientRect();
+        const isHalf = document.body.classList.contains('view-half-court');
+        const viewWidth = isHalf ? 140 : 280;
+        return {
+            x: (logicalPoint.x / viewWidth) * rect.width,
+            y: (logicalPoint.y / 150) * rect.height
+        };
+    },
+
     redrawCanvas: function() {
         const { ctx, canvas, playbookState, appState } = window.ORB;
+        if (!ctx || !canvas) return;
+
         const rect = canvas.getBoundingClientRect();
-        
         ctx.clearRect(0, 0, rect.width, rect.height);
 
         if (!playbookState.scenes[playbookState.activeSceneIndex]) return;
@@ -56,7 +68,7 @@ window.ORB.renderer = {
     // --- FONCTIONS DE DESSIN ---
 
     drawPlayer: function(logicalX, logicalY, isSelected, options = {}, p_ctx, p_getCoordsFn, animParams = {}) {
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         const { x, y } = getCoords({ x: logicalX, y: logicalY });
         const radius = 10;
         
@@ -104,7 +116,6 @@ window.ORB.renderer = {
         
         if (options.label) {
             p_ctx.fillStyle = '#FFFFFF';
-            // MODIFICATION ICI : Ajout de 'Arial' et 'sans-serif' en secours
             p_ctx.font = `bold ${radius + 2}px "Roboto", "Arial", sans-serif`;
             p_ctx.textAlign = 'center';
             p_ctx.textBaseline = 'middle';
@@ -114,7 +125,7 @@ window.ORB.renderer = {
     },
 
     drawDefender: function(logicalX, logicalY, isSelected, options = {}, p_ctx, p_getCoordsFn) {
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         const { x, y } = getCoords({ x: logicalX, y: logicalY });
         const radius = 10;
         const angle = (options.rotation || 0);
@@ -131,7 +142,6 @@ window.ORB.renderer = {
         
         if (options.label) {
             p_ctx.fillStyle = isSelected ? '#FFD700' : (options.color || '#D32F2F');
-            // MODIFICATION ICI : Ajout de 'Arial' en secours
             p_ctx.font = `bold ${radius}px "Roboto", "Arial", sans-serif`;
             p_ctx.textAlign = 'center';
             p_ctx.textBaseline = 'bottom';
@@ -140,7 +150,7 @@ window.ORB.renderer = {
     },
 
     drawBall: function(logicalX, logicalY, isSelected, options = {}, p_ctx, p_getCoordsFn) {
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         const { x, y } = getCoords({ x: logicalX, y: logicalY });
         const radius = 6;
         
@@ -156,7 +166,7 @@ window.ORB.renderer = {
     },
 
     drawCone: function(logicalX, logicalY, isSelected, options = {}, p_ctx, p_getCoordsFn) {
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         const { x, y } = getCoords({ x: logicalX, y: logicalY });
         const size = 8;
         
@@ -175,7 +185,7 @@ window.ORB.renderer = {
     },
 
     drawHoop: function(logicalX, logicalY, isSelected, options = {}, p_ctx, p_getCoordsFn) {
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         const { x, y } = getCoords({ x: logicalX, y: logicalY });
         const radius = 8;
         p_ctx.beginPath();
@@ -186,7 +196,7 @@ window.ORB.renderer = {
     },
 
     drawBasket: function(logicalX, logicalY, isSelected, options = {}, p_ctx, p_getCoordsFn) {
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         const { x, y } = getCoords({ x: logicalX, y: logicalY });
         const backboardWidth = 18;
         const backboardHeight = 12;
@@ -204,7 +214,7 @@ window.ORB.renderer = {
     },
 
     drawZone: function(logicalX, logicalY, width, height, isSelected, options = {}, p_ctx, p_getCoordsFn) {
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         const p1 = getCoords({ x: logicalX, y: logicalY });
         const p2 = getCoords({ x: logicalX + width, y: logicalY + height });
         
@@ -222,11 +232,10 @@ window.ORB.renderer = {
     },
 
     drawText: function(logicalX, logicalY, isSelected, options = {}, p_ctx, p_getCoordsFn) {
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         const { x, y } = getCoords({ x: logicalX, y: logicalY });
         const size = options.size || 14;
         
-        // MODIFICATION ICI : Ajout de 'Arial' en secours pour les textes manuels
         p_ctx.font = `bold ${size}px "Roboto", "Arial", sans-serif`;
         p_ctx.fillStyle = isSelected ? '#FFD700' : (options.color || '#212121');
         p_ctx.textAlign = 'center';
@@ -236,7 +245,7 @@ window.ORB.renderer = {
 
     drawPath: function(logicalPoints, isSelected, options = {}, p_ctx, p_getCoordsFn) {
         if (!logicalPoints || logicalPoints.length < 2) return;
-        const getCoords = p_getCoordsFn || window.ORB.utils.getPixelCoords;
+        const getCoords = p_getCoordsFn || this.getPixelCoords.bind(this);
         
         const pixelPoints = logicalPoints.map(p => getCoords(p));
         
