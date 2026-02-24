@@ -3,65 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ORB Board - Planificateur</title>
+    <title>ORB - Planificateur</title>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../../style.css">
     <link rel="stylesheet" href="planner.css">
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
     <header class="app-header">
-        <div style="display: flex; align-items: center; max-width: 1200px; margin: 0 auto;">
-            <a href="../../index.html" style="color: white; text-decoration: none; margin-right: 20px;">← Retour</a>
-            <h1 style="flex-grow: 1;">PLANIFICATEUR <span>D'ENTRAÎNEMENT</span></h1>
+        <div class="header-content" style="display: flex; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%;">
+            <a href="../../index.html" class="btn-icon" title="Retour au Dashboard">
+                <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg>
+            </a>
+            <h1 style="margin: 0; text-align: center; flex-grow: 1; padding-right: 40px;">ORB <span class="highlight">PLANIFICATEUR</span></h1>
         </div>
     </header>
 
-    <main class="view-content" style="padding: 20px;">
-        <div id="planner-grid">
-            </div>
+    <main style="max-width: 1200px; margin: 40px auto; padding: 0 20px;">
+        <div id="planner-grid"></div>
     </main>
 
     <div id="plan-editor-modal" class="modal hidden">
-        <div class="modal-content large">
-            <header class="modal-header">
-                <h3 id="plan-editor-title">Nouveau Plan</h3>
-                <button class="close-btn" id="plan-editor-close">×</button>
+        <div id="plan-editor-content" class="modal-content large">
+            <header style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 15px; margin-bottom: 15px;">
+                <h3 id="plan-editor-title" style="margin: 0; color: var(--color-text);">Créer une Séance</h3>
+                <button id="plan-editor-close-btn" class="btn-icon danger"><svg viewBox="0 0 24 24"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg></button>
             </header>
-            
+
             <div class="plan-editor-body">
                 <div class="plan-main-info">
+                    <input type="hidden" id="plan-editor-id" value="">
                     <div class="form-group">
-                        <label>Nom du Plan</label>
-                        <input type="text" id="plan-name" placeholder="Ex: Fondamentaux Tir">
+                        <label for="plan-editor-name">Nom de la Séance</label>
+                        <input type="text" id="plan-editor-name" placeholder="Ex: Séance Défense U15">
                     </div>
                     <div class="form-group">
-                        <label>Notes / Objectifs</label>
-                        <textarea id="plan-notes" placeholder="Points clés de la séance..."></textarea>
+                        <label for="plan-editor-notes">Objectifs</label>
+                        <textarea id="plan-editor-notes" rows="4" placeholder="Points clés à aborder..."></textarea>
                     </div>
                     <div class="form-group">
-                        <label>Exercices sélectionnés</label>
-                        <ul id="plan-playbooks-list" class="sortable-list">
-                            </ul>
+                        <label>Exercices Inclus</label>
+                        <ul id="plan-playbooks-list" style="list-style: none; padding: 0;">
+                            <li class="plan-editor-empty-list" style="opacity: 0.5; font-style: italic;">Piochez des exercices dans la bibliothèque de droite.</li>
+                        </ul>
                     </div>
                 </div>
 
-                <div class="plan-selector-aside">
-                    <h4>Ajouter un exercice</h4>
-                    <input type="text" id="selector-search" placeholder="Rechercher...">
-                    <div id="selector-list" class="mini-grid"></div>
-                </div>
+                <aside class="plan-selector-aside">
+                    <h4 style="margin-top: 0; color: var(--color-primary);">Bibliothèque</h4>
+                    <div id="plan-selector-filters" style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 15px;"></div>
+                    <input type="text" id="plan-selector-search" placeholder="Rechercher un exercice..." style="width: 100%; margin-bottom: 15px;">
+                    <div id="plan-selector-list" class="mini-grid"></div>
+                </aside>
             </div>
 
-            <footer class="modal-footer">
-                <button id="plan-cancel" class="danger">Annuler</button>
-                <button id="plan-save" class="btn-primary">Enregistrer le Plan</button>
+            <footer style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--color-border); padding-top: 20px; margin-top: 10px;">
+                <button id="plan-editor-cancel-btn" class="danger" style="padding: 10px 20px;">Annuler</button>
+                <button id="plan-editor-save-btn" class="btn-primary" style="padding: 10px 20px;">Sauvegarder la séance</button>
             </footer>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="../../core/db.js"></script>
     <script src="planner.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
+            if (localStorage.getItem('teamMode') === 'crab') document.body.classList.add('crab-mode');
+        });
+    </script>
 </body>
 </html>

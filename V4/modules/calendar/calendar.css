@@ -1,75 +1,65 @@
 /**
  * modules/calendar/calendar.css
+ * Thème 100% Noir & Or
  */
 .calendar-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #fff;
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--color-container); /* FIX: Était blanc */
+    padding: 15px; border-radius: 10px; margin-bottom: 20px;
+    border: 1px solid var(--color-border);
     box-shadow: var(--shadow-soft);
+    color: var(--color-text);
 }
 
 #calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 10px;
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px;
 }
 
 .calendar-header {
-    text-align: center;
-    font-weight: bold;
-    padding: 10px;
-    background: var(--color-secondary);
-    color: #fff;
-    border-radius: 5px;
+    text-align: center; font-weight: bold; padding: 10px;
+    background: var(--color-background); color: var(--color-primary);
+    border-radius: 5px; border: 1px solid var(--color-border);
 }
 
 .calendar-day {
-    background: #fff;
-    border: 1px solid var(--color-border);
-    min-height: 100px;
-    padding: 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.2s;
+    background: var(--color-container); /* FIX: Était blanc */
+    border: 1px solid var(--color-border); min-height: 100px; padding: 10px;
+    border-radius: 8px; cursor: pointer; transition: all 0.2s;
+    color: var(--color-text);
 }
 
-.calendar-day:hover { background: #f0f0f0; }
+.calendar-day:hover { 
+    background: rgba(191, 169, 141, 0.05); /* Lueur or */
+    border-color: var(--color-primary);
+}
 
-.day-number { font-weight: bold; margin-bottom: 5px; }
+.day-number { font-weight: bold; margin-bottom: 5px; color: var(--color-text-muted); }
+.calendar-day:hover .day-number { color: var(--color-primary); }
 
 .event-chip {
-    background: var(--color-primary);
-    font-size: 0.8em;
-    padding: 2px 5px;
-    border-radius: 3px;
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    background: var(--color-primary); color: #000; font-size: 0.8em;
+    padding: 3px 6px; border-radius: 4px; margin-top: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;
 }
 
 /* Modales */
 .modal {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
 .modal.hidden { display: none; }
+
 .modal-content {
-    background: #fff;
-    padding: 20px;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 500px;
+    background: var(--color-container); /* FIX: Était blanc */
+    padding: 25px; border-radius: 12px; width: 90%; max-width: 500px;
+    border: 1px solid var(--color-border); box-shadow: var(--shadow-lifted);
+    color: var(--color-text);
 }
+
 .form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+.form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: var(--color-primary); }
 .form-group input, .form-group select, .form-group textarea {
-    width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: 5px;
+    width: 100%; padding: 10px; border: 1px solid var(--color-border); border-radius: 6px;
+    background: var(--color-background); color: var(--color-text);
 }
