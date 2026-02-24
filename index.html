@@ -82,23 +82,34 @@
     <script src="core/db.js"></script>
     
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Applique les thèmes
-            if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
-            if (localStorage.getItem('teamMode') === 'crab') document.body.classList.add('crab-mode');
-
-            if (typeof orbDB !== 'undefined') await orbDB.open();
-
-            // ==========================================
-            // EXPORT (BACKUP COMPLET V4)
+        // ==========================================
+            // EXPORT (BACKUP COMPLET V4 AVEC IMAGES)
             // ==========================================
             document.getElementById('export-backup-btn').addEventListener('click', async () => {
+                const btn = document.getElementById('export-backup-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = "<span>Préparation...</span>";
+
                 try {
+                    const playbooks = await orbDB.getAllPlaybooks();
+                    
+                    // NOUVEAU : Convertir les images (Blobs) en Base64 pour les inclure dans le JSON
+                    for (let pb of playbooks) {
+                        if (pb.preview instanceof Blob) {
+                            pb.previewBase64 = await new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.readAsDataURL(pb.preview);
+                            });
+                        }
+                        delete pb.preview; // On retire l'objet Blob natif qui fait planter le JSON
+                    }
+
                     const backupData = {
                         version: "orb_backup_v4",
                         createdAt: new Date().toISOString(),
                         data: {
-                            playbooks: await orbDB.getAllPlaybooks(),
+                            playbooks: playbooks,
                             trainingPlans: await orbDB.getAllPlans(),
                             tags: await orbDB.getAllTags(),
                             calendarEvents: await orbDB.getAllCalendarEvents(),
@@ -108,13 +119,8 @@
                             sheetTags: await orbDB.getAllSheetTags()
                         }
                     };
-                    
-                    // On supprime les aperçus images pour alléger le fichier
-                    if(backupData.data.playbooks) {
-                        backupData.data.playbooks.forEach(pb => delete pb.preview);
-                    }
 
-                    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+                    const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -124,12 +130,15 @@
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                 } catch (error) {
+                    console.error(error);
                     alert("Erreur lors de la sauvegarde.");
+                } finally {
+                    btn.innerHTML = originalText;
                 }
             });
 
             // ==========================================
-            // IMPORT (COMPATIBILITÉ V3 & V4 INCLUSE)
+            // IMPORT (RESTAURATION AVEC RECRÉATION DES IMAGES)
             // ==========================================
             document.getElementById('import-backup-btn').addEventListener('click', () => {
                 document.getElementById('import-backup-input').click();
@@ -152,7 +161,6 @@
                             playbooks: [], trainingPlans: [], tags: [], calendarEvents: [], players: [], teams: [], sheets: [], sheetTags: []
                         };
 
-                        // Rétrocompatibilité et lecture du nouveau format
                         if (Array.isArray(parsedData)) {
                             dataToImport.playbooks = parsedData;
                         } else if (typeof parsedData === 'object') {
@@ -170,7 +178,25 @@
                             if (!pb.tagIds) pb.tagIds = [];
                             if (!pb.createdAt) pb.createdAt = new Date().toISOString();
                             if (!pb.name) pb.name = "Playbook Récupéré";
-                            delete pb.preview; 
+                            
+                            // NOUVEAU : Reconstruire l'image (Blob) à partir de la chaîne Base64 sauvegardée
+                            if (pb.previewBase64) {
+                                try {
+                                    const byteString = atob(pb.previewBase64.split(',')[1]);
+                                    const mimeString = pb.previewBase64.split(',')[0].split(':')[1].split(';')[0];
+                                    const ab = new ArrayBuffer(byteString.length);
+                                    const ia = new Uint8Array(ab);
+                                    for (let i = 0; i < byteString.length; i++) {
+                                        ia[i] = byteString.charCodeAt(i);
+                                    }
+                                    pb.preview = new Blob([ab], { type: mimeString });
+                                } catch (err) {
+                                    console.error("Erreur restauration aperçu", err);
+                                }
+                                delete pb.previewBase64;
+                            } else {
+                                delete pb.preview; 
+                            }
                         });
 
                         const tx = orbDB.db.transaction(['playbooks', 'trainingPlans', 'tags', 'calendarEvents', 'players', 'teams', 'sheets', 'sheetTags'], 'readwrite');
@@ -191,17 +217,17 @@
                         clearAndAdd('sheetTags', dataToImport.sheetTags);
 
                         tx.oncomplete = () => {
-                            alert("✅ Restauration réussie ! L'application a intégré vos données.");
+                            alert("✅ Restauration réussie avec tous les aperçus !");
                             window.location.reload(); 
                         };
                     } catch (err) {
+                        console.error(err);
                         alert("Erreur : Le fichier de backup n'est pas valide ou est corrompu.");
                     }
                     e.target.value = ''; 
                 };
                 reader.readAsText(file);
             });
-        });
     </script>
 </body>
 </html>

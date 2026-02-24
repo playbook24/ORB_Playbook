@@ -116,5 +116,41 @@ class ORBDatabase {
     }
     async getAllPlayers() { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['players'], 'readonly').objectStore('players').getAll().onsuccess = e => res(e.target.result); }); }
     async deletePlayer(id) { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['players'], 'readwrite').objectStore('players').delete(id).onsuccess = () => res(true); }); }
+    // --- FICHES PDF (SHEETS) ---
+    async saveSheet(data, id = null) {
+        if (!this.db) await this.open();
+        return new Promise((res, rej) => {
+            const s = this.db.transaction(['sheets'], 'readwrite').objectStore('sheets');
+            const dataToSave = { ...data };
+            if (id) dataToSave.id = id; else delete dataToSave.id;
+            const req = id ? s.put(dataToSave) : s.add(dataToSave);
+            req.onsuccess = e => res(e.target.result); 
+            req.onerror = e => rej(e);
+        });
+    }
+    
+    async getAllSheets() { 
+        if (!this.db) await this.open(); 
+        return new Promise(res => { 
+            this.db.transaction(['sheets'], 'readonly').objectStore('sheets').getAll().onsuccess = e => res(e.target.result); 
+        }); 
+    }
+
+    // --- TAGS DES FICHES PDF (SHEET TAGS) ---
+    async addSheetTag(name) { 
+        if (!this.db) await this.open(); 
+        return new Promise((res, rej) => { 
+            const req = this.db.transaction(['sheetTags'], 'readwrite').objectStore('sheetTags').add({name}); 
+            req.onsuccess = e => res(e.target.result); 
+            req.onerror = e => rej(e);
+        }); 
+    }
+    
+    async getAllSheetTags() { 
+        if (!this.db) await this.open(); 
+        return new Promise(res => { 
+            this.db.transaction(['sheetTags'], 'readonly').objectStore('sheetTags').getAll().onsuccess = e => res(e.target.result); 
+        }); 
+    }
 }
 const orbDB = new ORBDatabase();
