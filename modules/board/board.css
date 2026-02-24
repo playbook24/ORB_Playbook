@@ -1,0 +1,115 @@
+/**
+ * modules/board/board.css
+ * Thème 100% Noir & Or (V4)
+ */
+
+/* Layout Principal */
+body { margin: 0; overflow: hidden; background: var(--color-background); }
+
+.board-layout {
+    display: flex;
+    height: calc(100vh - 73px);
+    overflow: hidden;
+}
+
+/* Panneau Latéral (Propriétés & Séquence) */
+.sidebar {
+    width: 340px;
+    background: var(--color-container);
+    border-right: 1px solid var(--color-border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+}
+
+.sidebar-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+.sidebar-section h2 { margin-top: 0; font-size: 1.1em; text-transform: uppercase; letter-spacing: 1px; color: var(--color-primary); }
+
+/* Encadrements pour les inputs de propriétés */
+.prop-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.prop-row label { font-size: 0.9em; font-weight: bold; color: var(--color-text); }
+.prop-row input[type="text"], .prop-row input[type="number"] {
+    width: 60%; padding: 8px 12px; border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background: var(--color-background); color: var(--color-text);
+}
+.prop-row input[type="color"] {
+    border: none; padding: 0; width: 30px; height: 30px; border-radius: 4px; cursor: pointer;
+    background: transparent;
+}
+
+/* Palettes de couleurs */
+.color-palette { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.color-swatch { 
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer; 
+    border: 2px solid var(--color-border);
+    transition: transform 0.1s, border-color 0.2s;
+}
+.color-swatch:hover { transform: scale(1.15); border-color: var(--color-primary); }
+
+/* Boutons de la Sidebar (Séquence) */
+.sidebar-btn {
+    flex: 1; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer;
+    border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text);
+    transition: all 0.2s;
+}
+.sidebar-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.sidebar-btn.danger { border-color: #D32F2F; color: #D32F2F; }
+.sidebar-btn.danger:hover { background: rgba(211, 47, 47, 0.1); }
+
+/* Liste des scènes */
+.scene-list-style { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.scene-list-style li {
+    padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold;
+    border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text);
+    transition: all 0.2s;
+}
+.scene-list-style li:hover { border-color: var(--color-primary); }
+.scene-list-style li.active { border-color: var(--color-primary); background: rgba(191, 169, 141, 0.1); color: var(--color-primary); }
+
+.sidebar-textarea {
+    width: 100%; height: 120px; resize: vertical; padding: 12px; border-radius: 8px;
+    border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text);
+    font-family: inherit;
+}
+.sidebar-textarea:focus { border-color: var(--color-primary); outline: none; }
+
+/* Zone de travail centrale */
+.workspace { flex: 1; display: flex; flex-direction: column; background: var(--color-background); position: relative; }
+
+/* Barre d'outils Flottante */
+.toolbar-wrapper { padding: 20px; display: flex; justify-content: center; z-index: 5; }
+.premium-toolbar {
+    display: flex; gap: 15px; background: var(--color-container); padding: 10px 15px;
+    border-radius: 12px; border: 1px solid var(--color-border); box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    flex-wrap: wrap; justify-content: center;
+}
+.tool-group { display: flex; gap: 5px; padding-right: 15px; border-right: 1px solid var(--color-border); align-items: center; }
+.tool-group:last-child { border-right: none; padding-right: 0; }
+
+.tool-btn {
+    background: transparent; border: 1px solid transparent; border-radius: 8px; width: 42px; height: 42px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--color-text); transition: all 0.2s;
+}
+.tool-btn svg { width: 24px; height: 24px; fill: currentColor; }
+.tool-btn:hover { background: var(--color-background); border-color: var(--color-border); }
+.tool-btn.active { background: var(--color-primary); color: #000 !important; border-color: var(--color-primary); }
+.tool-btn.danger { color: #D32F2F; }
+.tool-btn.danger:hover { background: rgba(211,47,47,0.1); border-color: #D32F2F; }
+
+/* Espace de dessin (Le Terrain) */
+.artboard-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; overflow: hidden; }
+#court-container {
+    position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border-radius: 4px; background: #BFA98D; overflow: hidden;
+    width: 100%; max-width: 1000px; aspect-ratio: 280 / 150;
+    border: 2px solid var(--color-primary);
+}
+#court-background-container, #basketball-court { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+#basketball-court { z-index: 2; cursor: crosshair; }
+#court-background-container { z-index: 1; }
+.court { width: 100%; height: 100%; display: block; }
