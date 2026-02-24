@@ -1,8 +1,8 @@
 /**
- * ui.js
- * Gestion de l'interface utilisateur pour le Board V4.
- * CORRECTION : Réintégration complète des palettes de couleurs et propriétés de la V3.
+ * modules/board/ui.js
+ * Interface de l'éditeur tactique (Propriétés, Scènes, Outils, Exports).
  */
+window.ORB = window.ORB || {};
 
 window.ORB.ui = {
 
@@ -11,7 +11,7 @@ window.ORB.ui = {
         this.bindToolButtons();
         this.bindSceneControls();
         this.bindPropertiesPanel();
-        this.bindExports();
+        this.bindExports(); 
         this.bindTheme();
         this.initColorPalettes();
         this.bindInputMode();
@@ -27,18 +27,13 @@ window.ORB.ui = {
         const updateModeUI = () => {
             const mode = window.ORB.appState.inputMode;
             const isStylus = mode === 'stylus';
-            
             if(iconMouse) iconMouse.classList.toggle('hidden', isStylus);
             if(iconStylus) iconStylus.classList.toggle('hidden', !isStylus);
-            
             btn.classList.toggle('active', isStylus);
-            btn.title = isStylus ? "Mode Stylet : Dessin libre" : "Mode Souris : Point à point";
         };
 
         const savedMode = localStorage.getItem('inputMode');
-        if (savedMode) {
-            window.ORB.appState.inputMode = savedMode;
-        }
+        if (savedMode) window.ORB.appState.inputMode = savedMode;
         updateModeUI();
 
         btn.addEventListener('click', () => {
@@ -50,50 +45,7 @@ window.ORB.ui = {
         });
     },
 
-    toggleFloatingPanel: function(panel, button) {
-        if(!panel || !button) return;
-        const isOpening = panel.classList.contains('hidden');
-        document.querySelectorAll('.floating-panel').forEach(p => p.classList.add('hidden'));
-        document.querySelectorAll('.header-left button, .header-right .btn-icon').forEach(b => b.classList.remove('active'));
-        if (isOpening) {
-            panel.classList.remove('hidden');
-            button.classList.add('active');
-        }
-    },
-
     bindMainButtons: function() {
-        const togglePlaybookManagerBtn = document.getElementById('toggle-playbook-manager-btn');
-        const playbookManagerContainer = document.getElementById('play-manager-container');
-        const toggleSettingsBtn = document.getElementById('toggle-settings-btn');
-        const settingsPanel = document.getElementById('settings-panel');
-
-        if(togglePlaybookManagerBtn) {
-            togglePlaybookManagerBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleFloatingPanel(playbookManagerContainer, togglePlaybookManagerBtn);
-            });
-        }
-
-        if(toggleSettingsBtn) {
-            toggleSettingsBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleFloatingPanel(settingsPanel, toggleSettingsBtn);
-            });
-        }
-
-        window.addEventListener('click', (e) => {
-            const activeFloatingPanel = document.querySelector('.floating-panel:not(.hidden)');
-            if (activeFloatingPanel) {
-                const button = activeFloatingPanel.id.includes('play-manager') ? togglePlaybookManagerBtn : toggleSettingsBtn;
-                if (!activeFloatingPanel.contains(e.target) && button && !button.contains(e.target)) {
-                    if (!e.target.closest('.fullscreen-view') && !e.target.closest('.hidden')) {
-                         activeFloatingPanel.classList.add('hidden');
-                         button.classList.remove('active');
-                    }
-                }
-            }
-        });
-
         if(document.getElementById('action-undo')) document.getElementById('action-undo').addEventListener('click', () => window.ORB.undo());
         if(document.getElementById('action-redo')) document.getElementById('action-redo').addEventListener('click', () => window.ORB.redo());
         
@@ -117,10 +69,8 @@ window.ORB.ui = {
 
         if(document.getElementById("tool-clear")) {
             document.getElementById("tool-clear").addEventListener("click", () => {
-                if (confirm("Voulez-vous vraiment effacer tous les éléments de CETTE SCÈNE ?")) {
+                if (confirm("Voulez-vous effacer tous les éléments de CETTE SCÈNE ?")) {
                     window.ORB.playbookState.scenes[window.ORB.playbookState.activeSceneIndex].elements = [];
-                    window.ORB.appState.playerCounter = 1;
-                    window.ORB.appState.defenderCounter = 1;
                     window.ORB.appState.selectedElement = null;
                     window.ORB.commitState();
                     this.updatePropertiesPanel();
@@ -140,14 +90,15 @@ window.ORB.ui = {
     bindToolButtons: function() {
         document.querySelectorAll(".tool-btn").forEach(button => {
             button.addEventListener("click", () => {
-                if(!button.classList.contains('view-btn')) {
-                    window.ORB.interactions.finalizeCurrentPath();
+                if(!button.classList.contains('view-btn') && !button.id.includes('action') && !button.id.includes('clear')) {
+                    if (window.ORB.interactions && typeof window.ORB.interactions.finalizeCurrentPath === 'function') {
+                        window.ORB.interactions.finalizeCurrentPath();
+                    }
                     document.querySelectorAll(".tool-btn:not(.view-btn)").forEach(btn => btn.classList.remove("active"));
                     button.classList.add("active");
                     window.ORB.appState.currentTool = button.id.split("-")[1];
                     window.ORB.appState.selectedElement = null;
                     window.ORB.appState.selectedScene = null;
-                    window.ORB.appState.tempElement = null;
                     this.updatePropertiesPanel();
                     window.ORB.renderer.redrawCanvas();
                 }
@@ -165,11 +116,8 @@ window.ORB.ui = {
             
             const courtSvg = document.getElementById('court-svg');
             if(courtSvg) {
-                if (view === 'half') {
-                    courtSvg.setAttribute('viewBox', '0 0 140 150');
-                } else {
-                    courtSvg.setAttribute('viewBox', '0 0 280 150');
-                }
+                if (view === 'half') courtSvg.setAttribute('viewBox', '0 0 140 150');
+                else courtSvg.setAttribute('viewBox', '0 0 280 150');
             }
             window.ORB.renderer.resizeCanvas();
         };
@@ -191,12 +139,11 @@ window.ORB.ui = {
             li.draggable = true;
             li.textContent = scene.name || `Scène ${index + 1}`;
     
-            if (index === pbState.activeSceneIndex) {
-                li.classList.add("active");
-            }
+            if (index === pbState.activeSceneIndex) li.classList.add("active");
             
             li.addEventListener("click", () => this.switchToScene(index));
 
+            // Drag & Drop pour réorganiser les scènes
             li.addEventListener("dragstart", e => {
                 appState.draggedSceneIndex = index;
                 e.target.classList.add("dragging");
@@ -225,21 +172,18 @@ window.ORB.ui = {
 
     switchToScene: function(index, isUndoRedo = false) {
         const pbState = window.ORB.playbookState;
-        const appState = window.ORB.appState;
-
         if (index < 0 || index >= pbState.scenes.length) return;
-        if (!isUndoRedo) {
+        if (!isUndoRedo && window.ORB.interactions && typeof window.ORB.interactions.finalizeCurrentPath === 'function') {
             window.ORB.interactions.finalizeCurrentPath();
         }
         pbState.activeSceneIndex = index;
-        appState.selectedElement = null;
-        appState.selectedScene = pbState.scenes[index];
+        window.ORB.appState.selectedElement = null;
+        window.ORB.appState.selectedScene = pbState.scenes[index];
         
         const commentsTextarea = document.getElementById('comments-textarea');
         if (commentsTextarea && pbState.scenes[index]) {
             commentsTextarea.value = pbState.scenes[index].comments || "";
         }
-        
         this.updateSceneListUI();
         this.updatePropertiesPanel();
         window.ORB.renderer.redrawCanvas();
@@ -267,20 +211,16 @@ window.ORB.ui = {
                 if (pbState.scenes.length <= 1) return alert("Impossible de supprimer la dernière scène.");
                 if (confirm("Supprimer cette scène ?")) {
                     pbState.scenes.splice(pbState.activeSceneIndex, 1);
-                    const newIndex = Math.min(pbState.activeSceneIndex, pbState.scenes.length - 1);
                     window.ORB.commitState();
-                    this.switchToScene(newIndex);
+                    this.switchToScene(Math.max(0, pbState.activeSceneIndex - 1));
                 }
             });
         }
 
         if(document.getElementById('comments-textarea')) {
             document.getElementById('comments-textarea').addEventListener("change", e => {
-                const pbState = window.ORB.playbookState;
-                if (pbState.scenes[pbState.activeSceneIndex]) {
-                    pbState.scenes[pbState.activeSceneIndex].comments = e.target.value;
-                    window.ORB.commitState();
-                }
+                window.ORB.playbookState.scenes[window.ORB.playbookState.activeSceneIndex].comments = e.target.value;
+                window.ORB.commitState();
             });
         }
         
@@ -338,161 +278,75 @@ window.ORB.ui = {
             });
         }
 
+        // LECTURE ANIMATION VISUELLE (Ne lance pas de vidéo !)
         if(document.getElementById('play-animation-btn')) {
             document.getElementById('play-animation-btn').addEventListener('click', () => {
-                const courtView = document.body.classList.contains('view-half-court') ? 'half' : 'full';
-                window.ORB.animationState.view = courtView;
-                
-                const player = document.getElementById('animation-player');
-                player.classList.remove('hidden');
-                
-                const animContainer = document.getElementById('animation-container');
-                animContainer.style.aspectRatio = (courtView === 'half') ? '140 / 150' : '280 / 150';
-                
-                const courtSvg = document.getElementById('court-svg').cloneNode(true);
-                if (courtView === 'half') {
-                    courtSvg.setAttribute('viewBox', '0 0 140 150');
-                    const logo = courtSvg.querySelector('.center-court-logo');
-                    if (logo) logo.style.display = 'none';
-                } else {
-                    courtSvg.setAttribute('viewBox', '0 0 280 150');
+                if(window.ORB.animation && typeof window.ORB.animation.play === 'function') {
+                    window.ORB.animation.play(); 
                 }
-                document.getElementById('animation-court-background').innerHTML = courtSvg.outerHTML;
-
-                requestAnimationFrame(() => {
-                    const animRect = animContainer.getBoundingClientRect();
-                    const dpr = window.devicePixelRatio || 1;
-                    window.ORB.animCanvas.width = animRect.width * dpr;
-                    window.ORB.animCanvas.height = animRect.height * dpr;
-                    window.ORB.animCtx.scale(dpr, dpr);
-
-                    window.ORB.animation.prepareStoryboard(courtView);
-                    window.ORB.animationState.startTime = 0;
-                    window.ORB.animationState.elapsedOffset = 0;
-                    window.ORB.animation.startLoop();
-                });
-            });
-        }
-
-        if(document.getElementById('anim-play-pause-btn')) {
-            document.getElementById('anim-play-pause-btn').addEventListener('click', () => {
-                 if (window.ORB.animationState.isFinished) {
-                    window.ORB.animationState.startTime = 0;
-                    window.ORB.animationState.elapsedOffset = 0;
-                    window.ORB.animation.startLoop();
-                } else if (window.ORB.animationState.isPlaying) {
-                    window.ORB.animation.stopLoop();
-                } else {
-                    window.ORB.animation.startLoop();
-                }
-            });
-        }
-
-        if(document.getElementById('anim-close-btn')) {
-            document.getElementById('anim-close-btn').addEventListener('click', () => {
-                window.ORB.animation.stopLoop();
-                document.getElementById('animation-player').classList.add('hidden');
             });
         }
     },
 
     updatePropertiesPanel: function() {
-        const appState = window.ORB.appState;
-        const pbState = window.ORB.playbookState;
-
         document.querySelectorAll('.prop-group').forEach(g => g.classList.add('hidden'));
-        
-        const propertiesPanel = document.getElementById('properties-panel');
         const noPropsMessage = document.getElementById('no-props-message');
+        const el = window.ORB.appState.selectedElement;
         
-        if(!propertiesPanel) return;
-
-        const hasSelection = appState.selectedElement || appState.selectedScene;
-        
-        if (!hasSelection) {
-            propertiesPanel.classList.add('hidden');
-        } else {
-            propertiesPanel.classList.remove('hidden');
+        if (!el) {
+            if(noPropsMessage) noPropsMessage.style.display = 'block';
+            return;
         }
-        
-        if(noPropsMessage) noPropsMessage.style.display = hasSelection ? 'none' : 'block';
+        if(noPropsMessage) noPropsMessage.style.display = 'none';
 
-        if (appState.selectedElement) {
-            const el = appState.selectedElement;
-            const type = el.type;
-            const map = {
-                'player': 'player-props', 'defender': 'defender-props', 'ball': 'ball-props',
-                'cone': 'cone-props', 'hoop': 'hoop-props', 'basket': 'basket-props',
-                'zone': 'zone-props', 'text': 'text-props'
-            };
-            
-            let groupId = map[type];
-            if (['arrow', 'pass', 'dribble', 'screen', 'pencil'].includes(type)) groupId = 'path-props';
+        const map = {
+            'player': 'player-props', 'defender': 'defender-props', 'ball': 'ball-props',
+            'cone': 'cone-props', 'hoop': 'hoop-props', 'basket': 'basket-props',
+            'zone': 'zone-props', 'text': 'text-props'
+        };
+        let groupId = map[el.type];
+        if (['arrow', 'pass', 'dribble', 'screen', 'pencil'].includes(el.type)) groupId = 'path-props';
 
-            if (groupId) {
-                const group = document.getElementById(groupId);
-                if(group) {
-                    group.classList.remove('hidden');
-                    
-                    if (el.label && group.querySelector('input[id*="label"]')) group.querySelector('input[id*="label"]').value = el.label;
-                    if (el.color && group.querySelector('input[type="color"]')) group.querySelector('input[type="color"]').value = el.color;
-                    if (typeof el.rotation !== 'undefined' && group.querySelector('input[id*="rotation"]')) group.querySelector('input[id*="rotation"]').value = el.rotation;
-                    if (el.text && document.getElementById('text-content-input')) document.getElementById('text-content-input').value = el.text;
-                    if (el.size && document.getElementById('text-size-input')) document.getElementById('text-size-input').value = el.size;
-                    if (el.width && document.getElementById('path-width-input')) document.getElementById('path-width-input').value = el.width;
-                }
-            }
-        } else if (appState.selectedScene) {
-            const group = document.getElementById('scene-props');
+        if (groupId) {
+            const group = document.getElementById(groupId);
             if(group) {
                 group.classList.remove('hidden');
-                document.getElementById('scene-name-prop').value = appState.selectedScene.name || '';
-                
-                const durationInput = document.getElementById('scene-duration-prop');
-                durationInput.value = appState.selectedScene.durationOverride ? appState.selectedScene.durationOverride / 1000 : '';
-                
-                const isLast = pbState.scenes.indexOf(appState.selectedScene) === pbState.scenes.length - 1;
-                durationInput.disabled = isLast;
+                if (el.label && group.querySelector('input[id*="label"]')) group.querySelector('input[id*="label"]').value = el.label;
+                if (el.color && group.querySelector('input[type="color"]')) group.querySelector('input[type="color"]').value = el.color;
+                if (typeof el.rotation !== 'undefined' && group.querySelector('input[id*="rotation"]')) group.querySelector('input[id*="rotation"]').value = el.rotation;
+                if (el.text && document.getElementById('text-content-input')) document.getElementById('text-content-input').value = el.text;
+                if (el.size && document.getElementById('text-size-input')) document.getElementById('text-size-input').value = el.size;
+                if (el.width && document.getElementById('path-width-input')) document.getElementById('path-width-input').value = el.width;
             }
         }
     },
 
     bindPropertiesPanel: function() {
-        const panel = document.getElementById('properties-panel');
+        const panel = document.getElementById('prop-content');
         if(!panel) return;
 
-        panel.addEventListener('click', (e) => {
-            if (e.target === panel && window.innerWidth <= 1024) {
-                window.ORB.appState.selectedElement = null;
-                window.ORB.appState.selectedScene = null;
-                this.updatePropertiesPanel();
-                window.ORB.renderer.redrawCanvas();
-            }
-        });
-
         panel.addEventListener('change', e => {
-            const appState = window.ORB.appState;
-            if (appState.selectedElement) {
+            if (window.ORB.appState.selectedElement) {
                 const val = e.target.value;
                 const id = e.target.id;
                 
-                if (id.startsWith('text-content')) appState.selectedElement.text = val;
-                else if (id.includes('color')) appState.selectedElement.color = val;
-                else if (id.includes('label')) appState.selectedElement.label = val;
+                if (id.startsWith('text-content')) window.ORB.appState.selectedElement.text = val;
+                else if (id.includes('color')) window.ORB.appState.selectedElement.color = val;
+                else if (id.includes('label')) window.ORB.appState.selectedElement.label = val;
                 else if (id.includes('size') || id.includes('width') || id.includes('rotation')) {
                     const parts = id.split('-');
                     const key = parts[1]; 
-                    appState.selectedElement[key] = parseFloat(val);
+                    window.ORB.appState.selectedElement[key] = parseFloat(val);
                 }
                 window.ORB.commitState();
                 window.ORB.renderer.redrawCanvas();
-            } else if (appState.selectedScene) {
+            } else if (window.ORB.appState.selectedScene) {
                 if (e.target.id === 'scene-name-prop') {
-                    appState.selectedScene.name = e.target.value;
+                    window.ORB.appState.selectedScene.name = e.target.value;
                     this.updateSceneListUI();
                 } else if (e.target.id === 'scene-duration-prop') {
                     const d = parseFloat(e.target.value);
-                    appState.selectedScene.durationOverride = (d && d > 0) ? d * 1000 : null;
+                    window.ORB.appState.selectedScene.durationOverride = (d && d > 0) ? d * 1000 : null;
                 }
                 window.ORB.commitState();
             }
@@ -531,162 +385,178 @@ window.ORB.ui = {
                 container.appendChild(d);
             });
         };
-        createPalette('player-props', ['#d32f2f', '#007bff', '#28a745', '#ffc107', '#343a40', '#f8f9fa']);
-        createPalette('defender-props', ['#d32f2f', '#007bff', '#28a745', '#ffc107', '#343a40', '#f8f9fa']);
-        createPalette('path-props', ['#d32f2f', '#007bff', '#28a745', '#ffc107', '#343a40', '#f8f9fa']);
-        createPalette('text-props', ['#d32f2f', '#007bff', '#28a745', '#ffc107', '#343a40', '#f8f9fa']);
-        createPalette('zone-props', ['#ffeb3b', '#8bc34a', '#2196f3', '#e91e63']);
-        createPalette('cone-props', ['#ff7f50', '#ff4500', '#fca503', '#4682b4', '#333333']);
-        createPalette('hoop-props', ['#ff0000', '#0000ff', '#00ff00', '#ffff00', '#ff69b4']);
-        createPalette('basket-props', ['#E65100', '#696969', '#000000']);
+        const elitePalette = ['#BFA98D', '#d1bc9f', '#FFFFFF', '#AAAAAA', '#444444', '#000000'];
+        createPalette('player-props', elitePalette); createPalette('defender-props', elitePalette);
+        createPalette('path-props', elitePalette); createPalette('text-props', elitePalette);
+        createPalette('cone-props', elitePalette); createPalette('hoop-props', elitePalette);
+        createPalette('zone-props', ['#BFA98D', '#444444', '#222222']);
+        createPalette('basket-props', ['#BFA98D', '#000000']);
     },
 
     updateUndoRedoButtons: function() {
         const undoBtn = document.getElementById('action-undo');
         const redoBtn = document.getElementById('action-redo');
-        if(undoBtn) undoBtn.disabled = window.ORB.history.length <= 1;
-        if(redoBtn) redoBtn.disabled = window.ORB.redoStack.length === 0;
+        if(undoBtn && window.ORB.history) undoBtn.disabled = window.ORB.history.length <= 1;
+        if(redoBtn && window.ORB.redoStack) redoBtn.disabled = window.ORB.redoStack.length === 0;
     },
 
+    // ==========================================
+    // MODULE FICHIERS & EXPORTS (LA MODALE V4)
+    // ==========================================
     bindExports: function() {
-        // La majorité de l'export est maintenant gérée proprement par board.js. 
-        // L'export PDF / Vidéo reste ici s'il est utilisé par les anciens boutons.
+        const btnToggleMenu = document.getElementById('toggle-playbook-manager-btn');
+        const modal = document.getElementById('play-manager-modal');
+        const btnCloseModal = document.getElementById('close-play-manager-btn');
+        
+        if(btnToggleMenu && modal) btnToggleMenu.onclick = () => modal.classList.remove('hidden');
+        if(btnCloseModal && modal) btnCloseModal.onclick = () => modal.classList.add('hidden');
+
+        // 1. SAUVEGARDER BDD
+        const btnSaveLib = document.getElementById('save-to-library-btn');
+        if(btnSaveLib) {
+            btnSaveLib.onclick = async () => {
+                const name = document.getElementById('play-name-input').value || 'Schéma sans nom';
+                const data = window.ORB.state.getState();
+                data.name = name;
+                
+                window.ORB.renderer.redrawCanvas();
+                const w = window.ORB.canvas.width; const h = window.ORB.canvas.height;
+                const tempCanvas = document.createElement('canvas'); tempCanvas.width = w; tempCanvas.height = h;
+                const tCtx = tempCanvas.getContext('2d');
+                
+                const svgElement = document.getElementById('court-svg');
+                const xml = new XMLSerializer().serializeToString(svgElement);
+                const svg64 = btoa(unescape(encodeURIComponent(xml)));
+                
+                const img = new Image();
+                img.onload = async () => {
+                    tCtx.drawImage(img, 0, 0, w, h); tCtx.drawImage(window.ORB.canvas, 0, 0, w, h);
+                    tempCanvas.toBlob(async (blob) => {
+                        try {
+                            const newId = await orbDB.savePlaybook(data, blob, window.ORB.currentPlaybookId);
+                            window.ORB.currentPlaybookId = newId; 
+                            alert('✅ Schéma sauvegardé avec succès !');
+                            if(modal) modal.classList.add('hidden');
+                        } catch(e) { alert('Erreur de sauvegarde.'); }
+                    }, 'image/jpeg', 0.8);
+                };
+                img.src = 'data:image/svg+xml;base64,' + svg64;
+            };
+        }
+
+        // 2. IMPORT / EXPORT JSON
+        const btnExportJson = document.getElementById('save-file-btn');
+        if(btnExportJson) {
+            btnExportJson.onclick = () => {
+                const data = window.ORB.state.getState();
+                const name = document.getElementById('play-name-input').value || 'Playbook';
+                const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `${name}.json`;
+                a.click(); URL.revokeObjectURL(url);
+            };
+        }
+
+        const btnLoadJson = document.getElementById('load-file-btn');
+        const fileInput = document.getElementById('import-file-input');
+        if(btnLoadJson && fileInput) {
+            btnLoadJson.onclick = () => fileInput.click();
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        window.ORB.state.loadState(data); 
+                        if(data.name) document.getElementById('play-name-input').value = data.name;
+                        window.ORB.currentPlaybookId = null; 
+                        if(modal) modal.classList.add('hidden');
+                        window.ORB.renderer.redrawCanvas();
+                        this.updateSceneListUI();
+                    } catch(err) { alert('Fichier invalide.'); }
+                };
+                reader.readAsText(file);
+            };
+        }
+
+        // 3. EXPORT VIDÉO
+        const btnExportVideo = document.getElementById('export-video-btn');
+        if(btnExportVideo) {
+            btnExportVideo.onclick = () => {
+                if (window.ORB.animation && typeof window.ORB.animation.exportVideo === 'function') {
+                    if(modal) modal.classList.add('hidden');
+                    window.ORB.animation.exportVideo(); 
+                } else {
+                    alert("Module d'animation non prêt.");
+                }
+            };
+        }
+
+        // 4. EXPORT PDF DIRECT
         const exportPdfBtn = document.getElementById('export-pdf-btn');
         if (exportPdfBtn) {
-            exportPdfBtn.addEventListener("click", async () => {
+            exportPdfBtn.onclick = async () => {
                  if (typeof window.jspdf === 'undefined' || typeof window.html2canvas === 'undefined') return alert("Erreur lib PDF.");
+                 exportPdfBtn.textContent = "Génération..."; exportPdfBtn.disabled = true;
+
                  const { jsPDF } = window.jspdf;
                  const pbState = window.ORB.playbookState; 
                  const originalIndex = pbState.activeSceneIndex;
-                 const doc = new jsPDF("portrait", "mm", "a4");
-                 const MARGIN = 15;
-                 const PAGE_WIDTH = doc.internal.pageSize.getWidth();
-                 const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
-                 const isCrab = document.body.classList.contains('crab-mode');
-                 const COLORS = window.ORB.CONSTANTS.COLORS;
-                 const PRIMARY = isCrab ? COLORS.crabPrimary : COLORS.primary;
-                 const TEXT = isCrab ? COLORS.crabPrimary : '#212121';
-                 const SEC = isCrab ? COLORS.crabSecondary : '#212121';
-                 const playName = pbState.name || "Playbook";
-                 let scenesPerPage = parseInt(document.getElementById('pdf-scenes-per-page').value, 10) || 1;
-                 if (scenesPerPage < 1 || scenesPerPage > 6) scenesPerPage = 1;
-                 const addHeader = (doc, title) => {
-                    doc.setFillColor(PRIMARY);
-                    doc.rect(0, 0, PAGE_WIDTH, MARGIN + 5, 'F');
-                    doc.setFontSize(20); doc.setFont("helvetica", "bold"); doc.setTextColor('#FFFFFF');
-                    doc.text(title, PAGE_WIDTH / 2, MARGIN, { align: "center" });
-                 };
-                 const addFooter = (doc, pageNum, totalPages) => {
-                    doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(150);
-                    doc.text(`Page ${pageNum} / ${totalPages}`, PAGE_WIDTH / 2, PAGE_HEIGHT - (MARGIN / 2), { align: "center" });
-                 };
-                 const layoutConfig = { 1: {rows:1,cols:1}, 2:{rows:2,cols:1}, 3:{rows:3,cols:1}, 4:{rows:2,cols:2}, 5:{rows:3,cols:2}, 6:{rows:3,cols:2} }[scenesPerPage > 4 ? 6 : scenesPerPage];
-                 const totalScenePages = Math.ceil(pbState.scenes.length / scenesPerPage);
-                 if (pbState.scenes.length === 0) return alert("Aucune scène.");
+                 const doc = new jsPDF("landscape", "mm", "a4");
+                 const playName = document.getElementById('play-name-input').value || "Playbook";
+                 
+                 const svgElement = document.getElementById('court-svg');
+                 const xml = new XMLSerializer().serializeToString(svgElement);
+                 const svg64 = btoa(unescape(encodeURIComponent(xml)));
+                 const bgSrc = 'data:image/svg+xml;base64,' + svg64;
+
                  for (let i = 0; i < pbState.scenes.length; i++) {
-                    const pageIndex = Math.floor(i / scenesPerPage);
-                    const sceneIndexOnPage = i % scenesPerPage;
-                    if (sceneIndexOnPage === 0) {
-                        if (i > 0) doc.addPage();
-                        addHeader(doc, playName);
-                        addFooter(doc, pageIndex + 1, totalScenePages);
-                    }
+                    if (i > 0) doc.addPage();
+                    
+                    doc.setFillColor('#BFA98D'); doc.rect(0, 0, 297, 25, 'F');
+                    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor('#000000');
+                    doc.text(playName.toUpperCase(), 148, 16, { align: "center" });
+
                     await this.switchToScene(i, true);
                     await new Promise(r => setTimeout(r, 50));
-                    const courtImage = await html2canvas(document.getElementById('court-container'), { scale: 1.5, backgroundColor: null });
-                    const cellWidth = (PAGE_WIDTH - MARGIN * (layoutConfig.cols + 1)) / layoutConfig.cols;
-                    const cellHeight = (PAGE_HEIGHT - MARGIN * 4) / layoutConfig.rows;
-                    const colIndex = sceneIndexOnPage % layoutConfig.cols;
-                    const rowIndex = Math.floor(sceneIndexOnPage / layoutConfig.cols);
-                    const cellX = MARGIN + colIndex * (cellWidth + MARGIN);
-                    const cellY = MARGIN * 2.5 + rowIndex * (cellHeight + MARGIN);
-                    doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.setTextColor(TEXT);
-                    const sceneTitle = pbState.scenes[i].name || `Scène ${i + 1}`;
-                    doc.text(sceneTitle, cellX, cellY);
-                    doc.setDrawColor(isCrab ? SEC : PRIMARY); doc.setLineWidth(0.5);
-                    doc.line(cellX, cellY + 1, cellX + 30, cellY + 1);
-                    const diagramHeightRatio = 0.6;
-                    const diagramContainerHeight = cellHeight * diagramHeightRatio;
-                    const imgData = courtImage.toDataURL("image/jpeg", 0.8);
-                    const imgHeight = Math.min(diagramContainerHeight - 5, courtImage.height * cellWidth / courtImage.width);
-                    const imgWidth = courtImage.width * imgHeight / courtImage.height;
-                    doc.addImage(imgData, "JPEG", cellX, cellY + 5, imgWidth, imgHeight, undefined, 'FAST');
-                    const commentsY = cellY + diagramContainerHeight + 3;
-                    const comments = pbState.scenes[i].comments;
-                    if (comments) {
-                        doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(TEXT);
-                        doc.text(doc.splitTextToSize(comments, cellWidth - 4), cellX + 2, commentsY + 4);
+                    
+                    const tempC = document.createElement('canvas');
+                    tempC.width = 1120; tempC.height = 600;
+                    const tCtx = tempC.getContext('2d');
+                    
+                    await new Promise(resolve => {
+                        const img = new Image();
+                        img.onload = () => {
+                            tCtx.fillStyle = '#BFA98D'; tCtx.fillRect(0,0, tempC.width, tempC.height);
+                            tCtx.drawImage(img, 0, 0, tempC.width, tempC.height);
+                            tCtx.drawImage(window.ORB.canvas, 0, 0, tempC.width, tempC.height);
+                            resolve();
+                        };
+                        img.src = bgSrc;
+                    });
+
+                    const imgData = tempC.toDataURL('image/jpeg', 0.95);
+                    doc.addImage(imgData, 'JPEG', 20, 35, 257, 137);
+                    
+                    doc.setTextColor('#333333');
+                    if(pbState.scenes[i].comments) {
+                        doc.setFont("helvetica", "normal"); doc.setFontSize(12);
+                        doc.text(doc.splitTextToSize(`Scène ${i+1} : ${pbState.scenes[i].comments}`, 250), 20, 185);
                     }
                  }
+                 
                  doc.save(`${playName}.pdf`);
                  await this.switchToScene(originalIndex);
-            });
+                 exportPdfBtn.textContent = "Fiche PDF"; exportPdfBtn.disabled = false;
+                 if(modal) modal.classList.add('hidden');
+            };
         }
     },
 
     bindTheme: function() {
-        const updateTheme = (theme) => {
-            const isDark = theme === 'dark';
-            document.body.classList.toggle('dark-mode', isDark);
-            const sunIcon = document.getElementById('theme-icon-sun');
-            const moonIcon = document.getElementById('theme-icon-moon');
-            if(sunIcon) sunIcon.classList.toggle('hidden', isDark);
-            if(moonIcon) moonIcon.classList.toggle('hidden', !isDark);
-        };
-        const saved = localStorage.getItem('theme') || 'light';
-        updateTheme(saved);
-        
-        const themeToggleBtn = document.getElementById('theme-toggle-btn');
-        if(themeToggleBtn) {
-            themeToggleBtn.addEventListener('click', () => {
-                const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
-                localStorage.setItem('theme', newTheme);
-                updateTheme(newTheme);
-            });
-        }
-        
-        const teamBtn = document.getElementById('team-theme-btn');
-        const updateTeamUI = (isCrab) => {
-            if (isCrab) {
-                document.body.classList.add('crab-mode');
-                if(teamBtn) teamBtn.classList.add('active');
-                const svg = document.getElementById('court-svg');
-                if(svg) {
-                    const rect = svg.querySelector('rect[width="280"]');
-                    if(rect) rect.setAttribute('fill', window.ORB.CONSTANTS.COLORS.crabPrimary);
-                    const circle = svg.querySelector('.center-court-logo circle:first-child');
-                    if(circle) circle.setAttribute('fill', window.ORB.CONSTANTS.COLORS.crabPrimary);
-                    svg.querySelectorAll('line, path, circle, rect:not([width="280"])').forEach(el => {
-                         if(el.getAttribute('stroke')) el.setAttribute('stroke', window.ORB.CONSTANTS.COLORS.crabSecondary);
-                    });
-                    const txt = svg.querySelector('.center-court-logo text');
-                    if(txt) { txt.textContent = "CRAB"; txt.setAttribute('fill', window.ORB.CONSTANTS.COLORS.crabSecondary); }
-                }
-            } else {
-                document.body.classList.remove('crab-mode');
-                if(teamBtn) teamBtn.classList.remove('active');
-                 const svg = document.getElementById('court-svg');
-                 if(svg) {
-                    const rect = svg.querySelector('rect[width="280"]');
-                    if(rect) rect.setAttribute('fill', window.ORB.CONSTANTS.COLORS.primary);
-                    const circle = svg.querySelector('.center-court-logo circle:first-child');
-                    if(circle) circle.setAttribute('fill', window.ORB.CONSTANTS.COLORS.primary);
-                    svg.querySelectorAll('line, path, circle, rect:not([width="280"])').forEach(el => {
-                         if(el.getAttribute('stroke')) el.setAttribute('stroke', window.ORB.CONSTANTS.COLORS.secondary);
-                    });
-                    const txt = svg.querySelector('.center-court-logo text');
-                    if(txt) { txt.textContent = "ORB"; txt.setAttribute('fill', window.ORB.CONSTANTS.COLORS.secondary); }
-                 }
-            }
-            window.ORB.renderer.redrawCanvas();
-        };
-        if (localStorage.getItem('teamMode') === 'crab') updateTeamUI(true);
-        if(teamBtn) {
-            teamBtn.addEventListener('click', () => {
-                const isCrab = !document.body.classList.contains('crab-mode');
-                localStorage.setItem('teamMode', isCrab ? 'crab' : 'orb');
-                updateTeamUI(isCrab);
-            });
+        if (localStorage.getItem('teamMode') === 'crab') {
+             document.body.classList.add('crab-mode');
         }
     }
 };

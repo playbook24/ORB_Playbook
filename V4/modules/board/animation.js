@@ -1,10 +1,70 @@
 /**
- * animation.js
- * Logique d'animation (Storyboard, Tweening) et Export Vidéo.
+ * modules/board/animation.js
+ * Restauration complète du moteur d'interpolation V3 + Export Vidéo V4.
  */
+
+window.ORB = window.ORB || {};
+
+window.ORB.animationState = {
+    isPlaying: false,
+    isFinished: false,
+    isRecording: false,
+    startTime: 0,
+    elapsedOffset: 0,
+    view: 'full',
+    storyboard: [],
+    totalDuration: 0,
+    framesPerSecond: 30,
+    lastPositions: new Map() // Indispensable pour la rotation fluide des joueurs
+};
 
 window.ORB.animation = {
     
+    init: function() {
+        this.animCanvas = document.getElementById('animation-canvas');
+        if (this.animCanvas) {
+            this.animCtx = this.animCanvas.getContext('2d');
+            window.ORB.animCanvas = this.animCanvas;
+            window.ORB.animCtx = this.animCtx;
+        }
+        this.capturer = null;
+
+        this.playerModal = document.getElementById('animation-player');
+        this.btnPlayPause = document.getElementById('anim-play-pause-btn');
+        this.iconPlay = document.getElementById('anim-icon-play');
+        this.iconPause = document.getElementById('anim-icon-pause');
+        this.timeDisplay = document.getElementById('anim-time-display');
+
+        if(document.getElementById('anim-close-btn')) {
+            document.getElementById('anim-close-btn').addEventListener('click', () => {
+                this.stopLoop();
+                if(this.playerModal) this.playerModal.classList.add('hidden');
+            });
+        }
+        
+        if(this.btnPlayPause) {
+            this.btnPlayPause.addEventListener('click', () => {
+                if (window.ORB.animationState.isFinished) {
+                    this.startLoop();
+                } else if (window.ORB.animationState.isPlaying) {
+                    this.pauseLoop();
+                } else {
+                    this.resumeLoop();
+                }
+            });
+        }
+    },
+
+    updateIcons: function() {
+        if (window.ORB.animationState.isPlaying) {
+            if(this.iconPlay) this.iconPlay.classList.add('hidden');
+            if(this.iconPause) this.iconPause.classList.remove('hidden');
+        } else {
+            if(this.iconPlay) this.iconPlay.classList.remove('hidden');
+            if(this.iconPause) this.iconPause.classList.add('hidden');
+        }
+    },
+
     prepareStoryboard: function(courtView) {
         const state = window.ORB.animationState;
         const pbState = window.ORB.playbookState;
@@ -13,6 +73,8 @@ window.ORB.animation = {
 
         state.storyboard = [];
         state.totalDuration = 0;
+        state.lastPositions.clear();
+        
         const MOVEMENT_TOOLS = ['arrow', 'dribble', 'screen'];
 
         if (courtView === 'half') {
@@ -29,7 +91,7 @@ window.ORB.animation = {
             const startScene = pbState.scenes[i];
             const endScene = pbState.scenes[i + 1];
             const transition = {
-                duration: CONSTANTS.MIN_SCENE_DURATION,
+                duration: CONSTANTS.MIN_SCENE_DURATION || 2000,
                 passData: [], 
                 passPathData: [],
                 tweens: []
@@ -38,7 +100,6 @@ window.ORB.animation = {
             const startElementsMap = new Map(startScene.elements.map(e => [e.id, e]));
             const endElementsMap = new Map(endScene.elements.map(e => [e.id, e]));
             
-            // Gestion des passes
             const startBalls = startScene.elements.filter(e => e.type === 'ball');
             startBalls.forEach(startBall => {
                 const endBall = endElementsMap.get(startBall.id);
@@ -52,10 +113,10 @@ window.ORB.animation = {
                     
                     const passPath = startScene.elements.find(el => 
                         el.type === 'pass' &&
-                        Math.hypot(el.points[0].x - startElementsMap.get(startBall.linkedTo)?.x, el.points[0].y - startElementsMap.get(startBall.linkedTo)?.y) < CONSTANTS.PROXIMITY_THRESHOLD
+                        Math.hypot(el.points[0].x - startElementsMap.get(startBall.linkedTo)?.x, el.points[0].y - startElementsMap.get(startBall.linkedTo)?.y) < (CONSTANTS.PROXIMITY_THRESHOLD || 20)
                     );
 
-                    if (passPath) {
+                    if (passPath && utils.subdividePath) {
                         transition.passPathData.push({
                             points: utils.subdividePath(passPath.points),
                             color: passPath.color,
@@ -66,7 +127,6 @@ window.ORB.animation = {
                 }
             });
 
-            // Gestion des mouvements
             const consumedPathIds = new Set();
             const allIds = new Set([...startElementsMap.keys(), ...endElementsMap.keys()]);
             let maxMovementLength = 0;
@@ -88,19 +148,19 @@ window.ORB.animation = {
 
                 if (startEl.type === 'player' || startEl.type === 'defender') {
                     const movementPaths = startScene.elements.filter(el => MOVEMENT_TOOLS.includes(el.type) && !consumedPathIds.has(el.id));
-                    const linkedPath = movementPaths.find(path => Math.hypot(path.points[0].x - startEl.x, path.points[0].y - startEl.y) < CONSTANTS.PROXIMITY_THRESHOLD);
+                    const linkedPath = movementPaths.find(path => Math.hypot(path.points[0].x - startEl.x, path.points[0].y - startEl.y) < (CONSTANTS.PROXIMITY_THRESHOLD || 20));
 
                     if (linkedPath) {
                         const pathEnd = linkedPath.points[linkedPath.points.length - 1];
                         if (Math.hypot(pathEnd.x - endEl.x, pathEnd.y - endEl.y) < 5) {
-                            const fullPath = utils.subdividePath(linkedPath.points);
-                            tween.movementPath = fullPath;
-                            tween.pathType = linkedPath.type;
-                            tween.pathColor = linkedPath.color;
-                            tween.pathWidth = linkedPath.width;
-                            const pathLength = utils.getPathLength(fullPath);
-                            if (pathLength > maxMovementLength) {
-                                maxMovementLength = pathLength;
+                            if (utils.subdividePath) {
+                                const fullPath = utils.subdividePath(linkedPath.points);
+                                tween.movementPath = fullPath;
+                                tween.pathType = linkedPath.type;
+                                tween.pathColor = linkedPath.color;
+                                tween.pathWidth = linkedPath.width;
+                                const pathLength = utils.getPathLength(fullPath);
+                                if (pathLength > maxMovementLength) maxMovementLength = pathLength;
                             }
                             consumedPathIds.add(linkedPath.id);
                         }
@@ -109,13 +169,13 @@ window.ORB.animation = {
                 transition.tweens.push(tween);
             });
             
-            // Calcul de la durée
+            const animSettings = pbState.animationSettings || {};
             if (startScene.durationOverride > 0) {
                 transition.duration = startScene.durationOverride;
             } else {
-                const movementDuration = (maxMovementLength / (pbState.animationSettings.speed || CONSTANTS.DEFAULT_ANIMATION_SPEED)) * 1000;
-                const finalDuration = Math.max(CONSTANTS.MIN_SCENE_DURATION, movementDuration);
-                transition.duration = transition.passData.length > 0 ? Math.max(finalDuration, CONSTANTS.PASS_DURATION) : finalDuration;
+                const movementDuration = (maxMovementLength / (animSettings.speed || CONSTANTS.DEFAULT_ANIMATION_SPEED || 100)) * 1000;
+                const finalDuration = Math.max(CONSTANTS.MIN_SCENE_DURATION || 2000, movementDuration || 2000);
+                transition.duration = transition.passData.length > 0 ? Math.max(finalDuration, CONSTANTS.PASS_DURATION || 1000) : finalDuration;
             }
 
             state.storyboard.push(transition);
@@ -160,7 +220,8 @@ window.ORB.animation = {
         
         let pathProgress = 0;
         let movementProgress = 0;
-        const anticipationRatio = pbState.animationSettings.ratio || CONSTANTS.DEFAULT_ANTICIPATION_RATIO;
+        const animSettings = pbState.animationSettings || {};
+        const anticipationRatio = animSettings.ratio || CONSTANTS.DEFAULT_ANTICIPATION_RATIO || 0.2;
 
         if (rawProgress < anticipationRatio) {
             pathProgress = rawProgress / anticipationRatio;
@@ -170,22 +231,25 @@ window.ORB.animation = {
             movementProgress = (rawProgress - anticipationRatio) / (1 - anticipationRatio);
         }
         const easedMovementProgress = this.easeInOutQuad(movementProgress);
+        
+        // C'est ce calcul qui était cassé si on forçait le scale du context
         const getCoordsWithRect = (pos) => utils.getAnimPixelCoords(pos, p_rect, p_animState);
         
         p_ctx.save();
         
-        // Dessin des chemins animés
         const drawAnimatedPath = (pathData) => {
             if (!pathData || !pathData.points) return;
             const alpha = movementProgress > 0 ? 0.8 * (1 - easedMovementProgress) : 0.8;
-            const pathSlice = utils.getPathSlice(pathData.points, pathProgress);
-            const pathOptions = {
-                type: pathData.type,
-                color: utils.hexToRgba(pathData.color || '#212121', alpha),
-                width: (pathData.width || 2.5),
-                noHead: pathProgress < 1,
-            };
-            renderer.drawPath(pathSlice, false, pathOptions, p_ctx, getCoordsWithRect);
+            if (utils.getPathSlice && utils.hexToRgba) {
+                const pathSlice = utils.getPathSlice(pathData.points, pathProgress);
+                const pathOptions = {
+                    type: pathData.type,
+                    color: utils.hexToRgba(pathData.color || '#212121', alpha),
+                    width: (pathData.width || 2.5),
+                    noHead: pathProgress < 1,
+                };
+                renderer.drawPath(pathSlice, false, pathOptions, p_ctx, getCoordsWithRect);
+            }
         };
 
         transition.tweens.forEach(tween => drawAnimatedPath({points: tween.movementPath, type: tween.pathType, color: tween.pathColor, width: tween.pathWidth}));
@@ -196,7 +260,7 @@ window.ORB.animation = {
         const { passData, tweens } = transition;
         tweens.forEach(tween => {
             let currentPos;
-            if (tween.movementPath) {
+            if (tween.movementPath && utils.getPointOnPath) {
                 currentPos = utils.getPointOnPath(tween.movementPath, easedMovementProgress);
             } else {
                 currentPos = { 
@@ -216,9 +280,7 @@ window.ORB.animation = {
                 rotation = tween.startRotation;
             }
 
-            if (p_ctx === window.ORB.animCtx) {
-                p_animState.lastPositions.set(tween.id, currentPos);
-            }
+            p_animState.lastPositions.set(tween.id, currentPos);
             
             const drawFnName = 'draw' + tween.type.charAt(0).toUpperCase() + tween.type.slice(1);
             if (renderer[drawFnName] && !(tween.type === 'ball' && tween.linkedTo)) {
@@ -227,19 +289,17 @@ window.ORB.animation = {
             }
         });
 
-        // Dessin du ballon en mouvement lors d'une passe
         if (passData && passData.length > 0) {
-            const passProgress = Math.min(easedMovementProgress / CONSTANTS.PASS_RATIO, 1.0);
-
+            const passProgress = Math.min(easedMovementProgress / (CONSTANTS.PASS_RATIO || 0.8), 1.0);
             passData.forEach(pass => {
                 const passerTween = tweens.find(t => t.id === pass.passerId);
                 const receiverTween = tweens.find(t => t.id === pass.receiverId);
                 
                 if (passerTween && receiverTween) {
-                    const passerPos = utils.getPointOnPath(passerTween.movementPath, easedMovementProgress) || { x: passerTween.startX + (passerTween.endX - passerTween.startX) * easedMovementProgress, y: passerTween.startY + (passerTween.endY - passerTween.startY) * easedMovementProgress };
-                    const receiverPos = utils.getPointOnPath(receiverTween.movementPath, easedMovementProgress) || { x: receiverTween.startX + (receiverTween.endX - receiverTween.startX) * easedMovementProgress, y: receiverTween.startY + (receiverTween.endY - receiverTween.startY) * easedMovementProgress };
+                    const passerPos = (passerTween.movementPath && utils.getPointOnPath) ? utils.getPointOnPath(passerTween.movementPath, easedMovementProgress) : { x: passerTween.startX + (passerTween.endX - passerTween.startX) * easedMovementProgress, y: passerTween.startY + (passerTween.endY - passerTween.startY) * easedMovementProgress };
+                    const receiverPos = (receiverTween.movementPath && utils.getPointOnPath) ? utils.getPointOnPath(receiverTween.movementPath, easedMovementProgress) : { x: receiverTween.startX + (receiverTween.endX - receiverTween.startX) * easedMovementProgress, y: receiverTween.startY + (receiverTween.endY - receiverTween.startY) * easedMovementProgress };
 
-                    if (easedMovementProgress < CONSTANTS.PASS_RATIO) {
+                    if (easedMovementProgress < (CONSTANTS.PASS_RATIO || 0.8)) {
                         const ballX = passerPos.x + (receiverPos.x - passerPos.x) * passProgress;
                         const ballY = passerPos.y + (receiverPos.y - passerPos.y) * passProgress;
                         renderer.drawBall(ballX, ballY, false, pass.ball, p_ctx, getCoordsWithRect);
@@ -249,185 +309,215 @@ window.ORB.animation = {
         }
     },
 
+    // ===============================================
+    // LECTURE VISUELLE SUR ECRAN
+    // ===============================================
+    play: function() {
+        if (window.ORB.playbookState.scenes.length <= 1) return alert("Il faut au moins 2 scènes pour animer.");
+
+        window.ORB.animationState.isRecording = false;
+        
+        if(this.playerModal) this.playerModal.classList.remove('hidden');
+
+        requestAnimationFrame(() => {
+            const courtView = document.body.classList.contains('view-half-court') ? 'half' : 'full';
+            window.ORB.animationState.view = courtView;
+
+            const animContainer = document.getElementById('animation-container');
+            if(animContainer) animContainer.style.aspectRatio = (courtView === 'half') ? '140 / 150' : '280 / 150';
+            
+            const courtSvg = document.getElementById('court-svg').cloneNode(true);
+            if (courtView === 'half') {
+                courtSvg.setAttribute('viewBox', '0 0 140 150');
+                const logo = courtSvg.querySelector('.center-court-logo');
+                if (logo) logo.style.display = 'none';
+            } else {
+                courtSvg.setAttribute('viewBox', '0 0 280 150');
+            }
+            
+            const bgContainer = document.getElementById('animation-court-background');
+            if(bgContainer) bgContainer.innerHTML = courtSvg.outerHTML;
+
+            const animRect = animContainer.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            
+            this.animCanvas.width = animRect.width * dpr;
+            this.animCanvas.height = animRect.height * dpr;
+            this.animCtx.setTransform(1, 1);
+            this.animCtx.scale(dpr, dpr); // Mise à l'échelle Retina pure
+
+            this.prepareStoryboard(courtView);
+            this.startLoop();
+        });
+    },
+
+    // ===============================================
+    // EXPORT VIDÉO (.WEBM) AVEC CCAPTURE
+    // ===============================================
+    exportVideo: function() {
+        if (window.ORB.playbookState.scenes.length <= 1) return alert("Il faut au moins 2 scènes pour exporter une vidéo.");
+        if (typeof CCapture === 'undefined') return alert("Librairie CCapture non chargée.");
+
+        window.ORB.animationState.isRecording = true;
+        
+        if(this.playerModal) this.playerModal.classList.remove('hidden');
+
+        requestAnimationFrame(() => {
+            const courtView = document.body.classList.contains('view-half-court') ? 'half' : 'full';
+            window.ORB.animationState.view = courtView;
+
+            const animContainer = document.getElementById('animation-container');
+            if(animContainer) animContainer.style.aspectRatio = (courtView === 'half') ? '140 / 150' : '280 / 150';
+            
+            const courtSvg = document.getElementById('court-svg').cloneNode(true);
+            if (courtView === 'half') {
+                courtSvg.setAttribute('viewBox', '0 0 140 150');
+                const logo = courtSvg.querySelector('.center-court-logo');
+                if (logo) logo.style.display = 'none';
+            } else {
+                courtSvg.setAttribute('viewBox', '0 0 280 150');
+            }
+            
+            // On cache le fond HTML car on va le dessiner en dur sur le canvas pour la vidéo
+            const bgContainer = document.getElementById('animation-court-background');
+            if(bgContainer) bgContainer.innerHTML = ''; 
+
+            // Configuration Canvas HD pour la vidéo
+            const logicalWidth = courtView === 'half' ? 140 : 280;
+            const logicalHeight = 150;
+            const scale = 4; // Ratio de zoom vidéo
+            
+            this.animCanvas.width = logicalWidth * scale;
+            this.animCanvas.height = logicalHeight * scale;
+            this.animCtx.setTransform(1, 1);
+            // PAS DE SCALE ICI ! Le paramètre p_rect dans le render gère déjà la taille.
+
+            this.prepareStoryboard(courtView);
+            this.totalFrames = Math.floor((window.ORB.animationState.totalDuration / 1000) * 30); 
+            this.currentFrame = 0;
+
+            this.capturer = new CCapture({ 
+                format: 'webm', 
+                framerate: 30,
+                verbose: false,
+                display: true
+            });
+
+            // Conversion du terrain SVG en Image pour le fond
+            const xml = new XMLSerializer().serializeToString(courtSvg);
+            const svg64 = btoa(unescape(encodeURIComponent(xml)));
+            this.bgImage = new Image();
+            this.bgImage.onload = () => {
+                this.capturer.start();
+                window.ORB.animationState.isPlaying = true;
+                this.updateIcons();
+                this.loopVideo(); 
+            };
+            this.bgImage.src = 'data:image/svg+xml;base64,' + svg64;
+        });
+    },
+
     startLoop: function() {
-        const state = window.ORB.animationState;
-        const animIconPlay = document.getElementById('anim-icon-play');
-        const animIconPause = document.getElementById('anim-icon-pause');
-
-        if (state.isPlaying) return;
-        state.isPlaying = true;
-        state.isFinished = false;
-        animIconPlay.classList.add('hidden');
-        animIconPause.classList.remove('hidden');
-        state.animationFrameId = requestAnimationFrame(this.loop.bind(this));
+        window.ORB.animationState.isPlaying = true;
+        window.ORB.animationState.isFinished = false;
+        window.ORB.animationState.startTime = performance.now() - window.ORB.animationState.elapsedOffset;
+        this.updateIcons();
+        this.loopPlayback();
     },
 
-    loop: function(timestamp) {
-        const state = window.ORB.animationState;
-        const animTimeDisplay = document.getElementById('anim-time-display');
-        const animCtx = window.ORB.animCtx;
-        const animCanvas = window.ORB.animCanvas;
-
-        if (!state.isPlaying) return;
-
-        if (state.startTime === 0) {
-            state.startTime = timestamp - state.elapsedOffset;
-            state.lastPositions.clear();
-        }
-
-        const elapsed = timestamp - state.startTime;
-        const rect = animCanvas.getBoundingClientRect();
-        
-        animCtx.clearRect(0, 0, rect.width, rect.height);
-        this.renderAnimationFrameToContext(animCtx, rect, elapsed, state);
-
-        animTimeDisplay.textContent = `${(Math.min(elapsed, state.totalDuration) / 1000).toFixed(1)}s / ${(state.totalDuration / 1000).toFixed(1)}s`;
-        
-        if (elapsed >= state.totalDuration && state.totalDuration > 0) {
-            this.stopLoop(true);
-        } else {
-            state.animationFrameId = requestAnimationFrame(this.loop.bind(this));
-        }
+    resumeLoop: function() {
+        window.ORB.animationState.isPlaying = true;
+        window.ORB.animationState.startTime = performance.now() - window.ORB.animationState.elapsedOffset;
+        this.updateIcons();
+        this.loopPlayback(); 
     },
 
-    stopLoop: function(isFinished = false) {
-        const state = window.ORB.animationState;
-        const animIconPlay = document.getElementById('anim-icon-play');
-        const animIconPause = document.getElementById('anim-icon-pause');
-
-        state.isPlaying = false;
-        state.isFinished = isFinished;
-        
-        if (isFinished) {
-            state.elapsedOffset = state.totalDuration;
-            state.startTime = 0;
-             // Dessiner la dernière frame
-             const rect = window.ORB.animCanvas.getBoundingClientRect();
-             window.ORB.animCtx.clearRect(0, 0, rect.width, rect.height);
-             if (state.totalDuration > 0) {
-                this.renderAnimationFrameToContext(window.ORB.animCtx, rect, state.totalDuration, state);
-             }
-        } else if (state.startTime > 0) {
-            state.elapsedOffset = performance.now() - state.startTime;
-        }
-        
-        animIconPlay.classList.remove('hidden');
-        animIconPause.classList.add('hidden');
-        
-        if (state.animationFrameId) {
-            cancelAnimationFrame(state.animationFrameId);
-            state.animationFrameId = null;
-        }
+    pauseLoop: function() {
+        window.ORB.animationState.isPlaying = false;
+        if (this.animReq) cancelAnimationFrame(this.animReq);
+        this.updateIcons();
     },
 
-    // --- EXPORT VIDÉO ---
-    exportVideo: async function() {
-        if (window.ORB.playbookState.scenes.length < 2) {
-            return alert("Veuillez créer au moins deux scènes pour une animation.");
-        }
+    stopLoop: function() {
+        window.ORB.animationState.isPlaying = false;
+        if (this.animReq) cancelAnimationFrame(this.animReq);
         
-        if (typeof window.CCapture === 'undefined') {
-            alert("Erreur: La bibliothèque d'export vidéo (CCapture.js) n'a pas pu être chargée.");
+        if (window.ORB.animationState.isRecording && this.capturer) {
+            this.capturer.stop();
+            this.capturer.save();
+            window.ORB.animationState.isRecording = false;
+            if(this.playerModal) this.playerModal.classList.add('hidden'); 
+        }
+        this.updateIcons();
+    },
+
+    // Boucle d'écran (Fluide)
+    loopPlayback: function() {
+        if (!window.ORB.animationState.isPlaying) return;
+
+        const now = performance.now();
+        window.ORB.animationState.elapsedOffset = now - window.ORB.animationState.startTime;
+
+        if (window.ORB.animationState.elapsedOffset >= window.ORB.animationState.totalDuration) {
+            window.ORB.animationState.elapsedOffset = window.ORB.animationState.totalDuration;
+            
+            const rect = document.getElementById('animation-container').getBoundingClientRect();
+            this.animCtx.clearRect(0, 0, this.animCanvas.width, this.animCanvas.height);
+            this.renderAnimationFrameToContext(this.animCtx, rect, window.ORB.animationState.totalDuration, window.ORB.animationState);
+            
+            window.ORB.animationState.isPlaying = false;
+            window.ORB.animationState.isFinished = true;
+            this.updateIcons();
             return;
         }
 
-        const exportVideoBtn = document.getElementById('export-video-btn');
-        const allExportButtons = [exportVideoBtn, document.getElementById('export-pdf-btn')];
-        allExportButtons.forEach(btn => btn.disabled = true);
-        exportVideoBtn.textContent = 'Préparation...';
-
-        try {
-            const courtView = document.body.classList.contains('view-half-court') ? 'half' : 'full';
-            const FRAMERATE = 30;
-            
-            this.prepareStoryboard(courtView);
-            const totalDuration = window.ORB.animationState.totalDuration;
-            
-            const capturer = new CCapture({
-                format: 'webm',
-                framerate: FRAMERATE,
-                quality: 95,
-                display: false,
-            });
-
-            const offscreenCanvas = document.createElement('canvas');
-            const viewWidth = courtView === 'half' ? 140 : 280;
-            const aspectRatio = viewWidth / window.ORB.CONSTANTS.LOGICAL_HEIGHT;
-            
-            const maxDimension = 1920;
-            if (aspectRatio >= 1) { 
-                offscreenCanvas.width = maxDimension;
-                offscreenCanvas.height = Math.round(maxDimension / aspectRatio);
-            } else { 
-                offscreenCanvas.height = 1080;
-                offscreenCanvas.width = Math.round(1080 * aspectRatio);
-            }
-
-            const offscreenCtx = offscreenCanvas.getContext('2d');
-            const offscreenRect = { width: offscreenCanvas.width, height: offscreenCanvas.height };
-            
-            // Préparation du fond SVG
-            const courtSvg = document.getElementById('court-svg').cloneNode(true);
-            courtSvg.setAttribute('width', offscreenCanvas.width);
-            courtSvg.setAttribute('height', offscreenCanvas.height);
-            courtSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-            courtSvg.setAttribute('viewBox', courtView === 'half' ? (window.ORB.animationState.activeHalf === 'right' ? '140 0 140 150' : '0 0 140 150') : '0 0 280 150');
-            if (courtView === 'half') courtSvg.querySelector('.center-court-logo')?.remove();
-            
-            const svgString = new XMLSerializer().serializeToString(courtSvg);
-            const imgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-            const imgUrl = URL.createObjectURL(imgBlob);
-            const courtImage = await new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-                img.src = imgUrl;
-            });
-            URL.revokeObjectURL(imgUrl);
-            
-            let elapsed = 0;
-            const timeStep = 1000 / FRAMERATE;
-
-            capturer.start();
-
-            const isCrab = document.body.classList.contains('crab-mode');
-            const bgFill = isCrab ? window.ORB.CONSTANTS.COLORS.crabPrimary : window.ORB.CONSTANTS.COLORS.primary;
-
-            const renderFrame = () => {
-                if (elapsed > totalDuration) {
-                    exportVideoBtn.textContent = 'Encodage...';
-                    capturer.stop();
-                    capturer.save(blob => {
-                        const downloadUrl = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = downloadUrl;
-                        a.download = `${window.ORB.playbookState.name.trim() || 'playbook'}.webm`;
-                        a.click();
-                        URL.revokeObjectURL(downloadUrl);
-                        
-                        allExportButtons.forEach(btn => btn.disabled = false);
-                        exportVideoBtn.textContent = "Exporter (Vidéo)";
-                    });
-                    return;
-                }
-                const progress = Math.min(elapsed / totalDuration, 1);
-                exportVideoBtn.textContent = `Capture: ${Math.round(progress * 100)}%`;
-                
-                offscreenCtx.fillStyle = bgFill;
-                offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-
-                offscreenCtx.drawImage(courtImage, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
-                this.renderAnimationFrameToContext(offscreenCtx, offscreenRect, elapsed, window.ORB.animationState);
-                capturer.capture(offscreenCanvas);
-                elapsed += timeStep;
-                setTimeout(renderFrame, 0); 
-            };
-            renderFrame();
-        } catch (error) {
-            console.error(`Erreur lors de l'exportation vidéo:`, error);
-            alert(`Une erreur est survenue. Consultez la console.`);
-            allExportButtons.forEach(btn => btn.disabled = false);
-            exportVideoBtn.textContent = "Exporter (Vidéo)";
+        const rect = document.getElementById('animation-container').getBoundingClientRect();
+        this.animCtx.clearRect(0, 0, this.animCanvas.width, this.animCanvas.height);
+        this.renderAnimationFrameToContext(this.animCtx, rect, window.ORB.animationState.elapsedOffset, window.ORB.animationState);
+        
+        if (this.timeDisplay) {
+            const time = (window.ORB.animationState.elapsedOffset / 1000).toFixed(1);
+            const totalTime = (window.ORB.animationState.totalDuration / 1000).toFixed(1);
+            this.timeDisplay.textContent = `${time}s / ${totalTime}s`;
         }
+
+        this.animReq = requestAnimationFrame(() => this.loopPlayback());
+    },
+
+    // Boucle de Vidéo (Image par image forcée)
+    loopVideo: function() {
+        if (!window.ORB.animationState.isPlaying) return;
+
+        if (this.currentFrame >= this.totalFrames) {
+            this.stopLoop();
+            return;
+        }
+        
+        const timeElapsed = (this.currentFrame / 30) * 1000;
+        
+        // Rect virtuel correspondant à la taille HD
+        const hdRect = { width: this.animCanvas.width, height: this.animCanvas.height, left: 0, top: 0 };
+
+        this.animCtx.clearRect(0, 0, this.animCanvas.width, this.animCanvas.height);
+        
+        // Dessin manuel du fond pour l'enregistrement
+        if (this.bgImage) {
+            this.animCtx.fillStyle = '#BFA98D';
+            this.animCtx.fillRect(0, 0, this.animCanvas.width, this.animCanvas.height);
+            this.animCtx.drawImage(this.bgImage, 0, 0, this.animCanvas.width, this.animCanvas.height);
+        }
+
+        this.renderAnimationFrameToContext(this.animCtx, hdRect, timeElapsed, window.ORB.animationState);
+        
+        if (this.capturer) this.capturer.capture(this.animCanvas);
+        
+        if (this.timeDisplay) {
+            const time = (timeElapsed / 1000).toFixed(1);
+            const totalTime = (window.ORB.animationState.totalDuration / 1000).toFixed(1);
+            this.timeDisplay.textContent = `${time}s / ${totalTime}s [REC]`;
+        }
+
+        this.currentFrame++;
+        setTimeout(() => this.loopVideo(), 0); 
     }
 };
