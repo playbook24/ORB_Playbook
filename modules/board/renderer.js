@@ -9,11 +9,17 @@ window.ORB.renderer = {
     getPixelCoords: function(logicalPoint) {
         if (!window.ORB.canvas) return logicalPoint;
         const rect = window.ORB.canvas.getBoundingClientRect();
-        const isHalf = document.body.classList.contains('view-half-court');
-        const viewWidth = isHalf ? 140 : 280;
+        
+        // On vérifie le type de terrain sauvegardé dans l'état
+        const isHalf = window.ORB.playbookState && window.ORB.playbookState.courtType === 'half';
+        
+        // NOUVEAU : Dimensions logiques distinctes (150x140 pour le vertical)
+        const viewWidth = isHalf ? 150 : 280;
+        const viewHeight = isHalf ? 140 : 150;
+        
         return {
             x: (logicalPoint.x / viewWidth) * rect.width,
-            y: (logicalPoint.y / 150) * rect.height
+            y: (logicalPoint.y / viewHeight) * rect.height
         };
     },
 

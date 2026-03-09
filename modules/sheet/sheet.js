@@ -7,7 +7,6 @@ const SheetStudio = {
     allPlaybooks: [], allPlans: [], allSheets: [], allTags: [], allSheetTags: [], allFolders: [],
     currentMode: null, currentPlanId: null, currentSheetId: null,
     
-    // NOUVEAU : Navigation par Dossiers
     exoViewMode: 'FOLDERS', 
     currentExoFolderId: null,
     activeTagExo: null, 
@@ -61,7 +60,6 @@ const SheetStudio = {
     },
 
     bindEvents() {
-        // Clic sur Fiche Exercice : On réinitialise la vue aux Dossiers
         document.getElementById('nav-new-exo').onclick = () => { 
             this.currentSheetId = null; 
             this.exoViewMode = 'FOLDERS'; 
@@ -77,7 +75,6 @@ const SheetStudio = {
         
         this.searchExo.oninput = (e) => this.renderExoPlaybooks(e.target.value);
 
-        // Bouton Retour de la sélection Exo
         this.btnExoBack.onclick = () => {
             if (this.exoViewMode === 'PLAYBOOKS') {
                 this.exoViewMode = 'FOLDERS';
@@ -197,7 +194,6 @@ const SheetStudio = {
         this.renderStorageList();
     },
 
-    // --- NAVIGATION DANS LA SÉLECTION D'EXERCICE ---
     renderSelectExoView() {
         if (this.exoViewMode === 'FOLDERS') {
             this.renderExoFolders();
@@ -212,14 +208,12 @@ const SheetStudio = {
         this.searchExo.classList.add('hidden');
         this.listExo.innerHTML = '';
 
-        // Tous les schémas
         const divAll = document.createElement('div'); 
         divAll.className = 'grid-card';
         divAll.innerHTML = `<div style="height:110px; background:rgba(255,255,255,0.05); border-radius:4px; margin-bottom:10px; display:flex; align-items:center; justify-content:center;">${this.iconAll}</div> <strong>Tous les schémas</strong>`;
         divAll.onclick = () => { this.exoViewMode = 'PLAYBOOKS'; this.currentExoFolderId = 'ALL'; this.renderSelectExoView(); };
         this.listExo.appendChild(divAll);
 
-        // Dossiers utilisateurs
         this.allFolders.forEach(folder => {
             const count = this.allPlaybooks.filter(pb => pb.folderIds && pb.folderIds.includes(folder.id)).length;
             const div = document.createElement('div'); 
@@ -235,7 +229,6 @@ const SheetStudio = {
         this.searchExo.classList.remove('hidden');
         this.listExo.innerHTML = '';
 
-        // 1. Tags spécifiques au dossier
         this.filterTagsExo.innerHTML = '';
         const allBtn = document.createElement('div');
         allBtn.className = `tag-chip ${this.activeTagExo === null ? 'active' : ''}`;
@@ -254,7 +247,6 @@ const SheetStudio = {
             this.filterTagsExo.appendChild(btn);
         });
 
-        // 2. Filtrage des exos
         let filtered = this.allPlaybooks;
         if (this.currentExoFolderId !== 'ALL') {
             filtered = filtered.filter(pb => pb.folderIds && pb.folderIds.includes(this.currentExoFolderId));
@@ -271,7 +263,6 @@ const SheetStudio = {
             return;
         }
 
-        // 3. Affichage
         filtered.reverse().forEach(pb => {
             let src = ''; if (pb.preview instanceof Blob) { try { src = URL.createObjectURL(pb.preview); } catch(e){} }
             const div = document.createElement('div'); div.className = 'grid-card';
@@ -281,7 +272,6 @@ const SheetStudio = {
         });
     },
 
-    // --- AUTRES LISTES ---
     renderTagsFilterStorage() {
         const container = document.getElementById('filter-tags-storage');
         container.innerHTML = '';
@@ -421,52 +411,110 @@ const SheetStudio = {
         });
     },
 
+   // --- CORRECTION V4.2 : Aperçu NET et sans couleur noire pour le Studio ---
    async generateSceneImage(playbookData, sceneIndex) {
         return new Promise((resolve) => {
+            const originalState = window.ORB.playbookState;
+            const originalCanvas = window.ORB.canvas;
+            const originalCtx = window.ORB.ctx;
+
             window.ORB.playbookState = playbookData;
             window.ORB.playbookState.activeSceneIndex = sceneIndex;
-            window.ORB.renderer.redrawCanvas(); 
 
-            const w = 560; const h = 300; 
-            const tCanvas = document.createElement('canvas');
-            tCanvas.width = w; tCanvas.height = h;
-            const tCtx = tCanvas.getContext('2d');
-
-            const svgElement = document.getElementById('court-svg');
-            const svgClone = svgElement.cloneNode(true);
+            const isHalf = playbookData.courtType === 'half';
             
-            const isCrab = document.body.classList.contains('crab-mode') || document.documentElement.classList.contains('crab-mode');
+            const drawW = isHalf ? 1500 : 2800;
+            const drawH = isHalf ? 1400 : 1500;
+            
+            // Échelle de référence pour ne pas avoir de joueurs trop gros ou trop petits
+            const baseW = isHalf ? 450 : 840;
+            const baseH = isHalf ? 420 : 450;
+
+            const tempC = document.createElement('canvas');
+            tempC.width = drawW;
+            tempC.height = drawH;
+            const tCtx = tempC.getContext('2d');
+
+            const isCrab = document.body.classList.contains('crab-mode');
             const primaryColor = isCrab ? '#72243D' : '#BFA98D';
             const secondaryColor = isCrab ? '#F9AB00' : '#212121';
 
-            svgClone.querySelectorAll('[fill="var(--color-primary)"]').forEach(el => el.setAttribute('fill', primaryColor));
+            tCtx.fillStyle = primaryColor;
+            tCtx.fillRect(0, 0, drawW, drawH);
+
+            const courtSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            courtSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            courtSvg.setAttribute('width', drawW);
+            courtSvg.setAttribute('height', drawH);
+            courtSvg.setAttribute('viewBox', isHalf ? '0 0 150 140' : '0 0 280 150');
+            courtSvg.setAttribute('preserveAspectRatio', 'none');
             
-            const textOrb = svgClone.querySelector('.court-text-orb');
-            const textCrab = svgClone.querySelector('.court-text-crab');
-            
-            if (isCrab) {
-                svgClone.querySelectorAll('.court-lines').forEach(el => el.setAttribute('stroke', secondaryColor));
-                if (textOrb) textOrb.setAttribute('display', 'none');
-                if (textCrab) {
-                    textCrab.setAttribute('display', 'block');
-                    textCrab.setAttribute('fill', secondaryColor);
-                }
+            if (isHalf) {
+                courtSvg.innerHTML = `
+                    <rect x="0" y="0" width="150" height="140" fill="${primaryColor}"/>
+                    <g class="court-lines" stroke="${secondaryColor}" stroke-width="0.6" fill="none">
+                        <rect x="0" y="0" width="150" height="140"/>
+                        <rect x="46" y="0" width="58" height="50.5" />
+                        <path d="M 46 50.5 A 18 18 0 0 0 104 50.5" />
+                        <path d="M 6 0 L 6 29.1 A 67.5 67.5 0 0 0 144 29.1 L 144 0" />
+                    </g>
+                    <g class="court-lines" stroke="${secondaryColor}" fill="none" transform="translate(75, 15.75)">
+                        <line x1="-9" y1="-3.75" x2="9" y2="-3.75" stroke-width="0.8"/>
+                        <circle cx="0" cy="0" r="2.25" stroke-width="0.5"/>
+                        <path d="M -12.5 0 A 12.5 12.5 0 0 1 12.5 0" stroke-width="0.6"/>
+                    </g>
+                    <path class="court-lines" d="M 57 140 A 18 18 0 0 1 93 140" stroke="${secondaryColor}" stroke-width="0.6" fill="none"/>
+                `;
             } else {
-                if (textCrab) textCrab.setAttribute('display', 'none');
-                if (textOrb) textOrb.setAttribute('display', 'block');
+                courtSvg.innerHTML = `
+                    <rect x="0" y="0" width="280" height="150" fill="${primaryColor}"/>
+                    <g class="court-lines" stroke="${secondaryColor}" stroke-width="0.6" fill="none"><rect x="0" y="0" width="280" height="150"/><line x1="140" y1="0" x2="140" y2="150"/><rect x="0" y="50.5" width="58" height="49" /><path d="M 58 50.5 A 18 18 0 0 1 58 99.5" /><path d="M 0 6 L 29.1 6 A 67.5 67.5 0 0 1 29.1 144 L 0 144" /><rect x="222" y="50.5" width="58" height="49" /><path d="M 222 50.5 A 18 18 0 0 0 222 99.5" /><path d="M 280 6 L 250.9 6 A 67.5 67.5 0 0 0 250.9 144 L 280 144" /></g>
+                    <g class="center-court-logo">
+                        <circle cx="140" cy="75" r="18" fill="${primaryColor}" />
+                        <circle class="court-lines" cx="140" cy="75" r="18" fill="none" stroke="${secondaryColor}" stroke-width="0.6"/>
+                        ${!isCrab ? `<text class="court-text-orb" x="140" y="76" font-family="Impact, 'Arial Black', sans-serif" font-size="15" fill="${secondaryColor}" text-anchor="middle" dominant-baseline="middle" letter-spacing="0.5">ORB</text>` : ''}
+                        ${isCrab ? `<text class="court-text-crab" x="140" y="76" font-family="Impact, 'Arial Black', sans-serif" font-size="15" fill="${secondaryColor}" text-anchor="middle" dominant-baseline="middle" letter-spacing="0.5">CRAB</text>` : ''}
+                    </g>
+                    <g class="court-lines" stroke="${secondaryColor}" fill="none"><g transform="translate(15.75, 75)"><line x1="-3.75" y1="-9" x2="-3.75" y2="9" stroke-width="0.8"/><circle cx="0" cy="0" r="2.25" stroke-width="0.5"/><path d="M 0 -12.5 A 12.5 12.5 0 0 1 0 12.5" stroke-width="0.6"/></g><g transform="translate(264.25, 75)"><line x1="3.75" y1="-9" x2="3.75" y2="9" stroke-width="0.8"/><circle cx="0" cy="0" r="2.25" stroke-width="0.5"/><path d="M 0 -12.5 A 12.5 12.5 0 0 0 0 12.5" stroke-width="0.6"/></g></g>
+                `;
             }
 
-            const xml = new XMLSerializer().serializeToString(svgClone);
-            const svg64 = btoa(unescape(encodeURIComponent(xml)));
-            const image64 = 'data:image/svg+xml;base64,' + svg64;
+            let xml = new XMLSerializer().serializeToString(courtSvg);
+            xml = xml.replace(/var\(--color-primary\)/gi, primaryColor);
+            if (isCrab) {
+                xml = xml.replace(/#212121/gi, secondaryColor);
+            }
 
             const img = new Image();
             img.onload = () => {
-                tCtx.drawImage(img, 0, 0, w, h); 
-                tCtx.drawImage(window.ORB.canvas, 0, 0, w, h); 
-                resolve(tCanvas.toDataURL('image/jpeg', 0.95));
+                tCtx.drawImage(img, 0, 0, drawW, drawH); 
+                
+                const drawC = document.createElement('canvas');
+                drawC.width = drawW;
+                drawC.height = drawH;
+                const dCtx = drawC.getContext('2d');
+                
+                // MULTIPLICATEUR PARFAIT
+                dCtx.scale(drawW / baseW, drawH / baseH);
+                drawC.getBoundingClientRect = () => ({ width: baseW, height: baseH, left: 0, top: 0 });
+
+                window.ORB.canvas = drawC;
+                window.ORB.ctx = dCtx;
+
+                window.ORB.renderer.redrawCanvas(); 
+
+                tCtx.drawImage(drawC, 0, 0, drawW, drawH); 
+                
+                window.ORB.canvas = originalCanvas;
+                window.ORB.ctx = originalCtx;
+                window.ORB.playbookState = originalState;
+
+                resolve(tempC.toDataURL('image/jpeg', 0.95));
             };
-            img.src = image64;
+            img.onerror = () => {
+                resolve(tempC.toDataURL('image/jpeg', 0.5));
+            };
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
         });
     },
 
@@ -650,7 +698,6 @@ const SheetStudio = {
     selectElement(el) { this.deselectAll(); this.selectedElement = el; el.classList.add('selected'); },
     deselectAll() { document.querySelectorAll('.draggable-element').forEach(e => e.classList.remove('selected')); this.selectedElement = null; this.clearGuides(); },
 
-    // --- ALIGNEMENT ---
     clearGuides() { document.querySelectorAll('.align-guide').forEach(el => el.remove()); },
 
     checkAlignment() {
@@ -712,7 +759,6 @@ const SheetStudio = {
         checkH(relRect.top); checkH(relRect.bottom); checkH(relRect.centerY);
     },
 
-    // --- RESIZE & DRAG ---
     initResize(e, el, mode) {
         e.stopPropagation(); this.selectElement(el);
         this.isResizing = true; this.resizeMode = mode;

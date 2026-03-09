@@ -169,7 +169,7 @@ body { margin: 0; overflow: hidden; background: var(--color-background); }
 
 /* --- CORRECTION ASPECT RATIO DEMI-TERRAIN --- */
 body.view-half-court #court-container {
-    aspect-ratio: 140 / 150;
+    aspect-ratio: 150 / 140; /* NOUVEAU RATIO VERTICAL */
     max-width: 500px; /* Évite que le terrain ne devienne gigantesque en hauteur sur grand écran */
     margin: 0 auto;
 }

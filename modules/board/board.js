@@ -55,23 +55,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     // =========================================================
     window.addEventListener('loadPlaybook', (e) => {
         const playbookRecord = e.detail;
-        
-        // COMPATIBILITÉ V3 : On s'assure qu'on récupère bien les données au bon endroit
         let dataToLoad = playbookRecord.playbookData || playbookRecord; 
 
         if (dataToLoad && dataToLoad.scenes) {
-            window.ORB.playbookState = JSON.parse(JSON.stringify(dataToLoad));
+            
+            if (window.ORB.normalizePlaybook) {
+                window.ORB.playbookState = window.ORB.normalizePlaybook(dataToLoad);
+            } else {
+                window.ORB.playbookState = JSON.parse(JSON.stringify(dataToLoad));
+            }
+            
+            // FORCER LE TERRAIN EXACT (Sécurité anti-cache)
+            const savedCourtType = dataToLoad.courtType || 'full';
+            window.ORB.playbookState.courtType = savedCourtType;
+            
             window.ORB.appState.currentLoadedPlaybookId = playbookRecord.id || null;
             
             const nameInput = document.getElementById('play-name-input');
             if(nameInput) nameInput.value = window.ORB.playbookState.name || "";
             
+            // APPLIQUER LA VUE DU TERRAIN *AVANT* LE DESSIN
+            if (window.ORB.ui && typeof window.ORB.ui.setView === 'function') {
+                const tempCommit = window.ORB.commitState;
+                window.ORB.commitState = function(){}; // Bloque l'historique pendant le setup
+                window.ORB.ui.setView(savedCourtType);
+                window.ORB.commitState = tempCommit;
+            }
+
             window.ORB.history = [];
             window.ORB.redoStack = [];
             window.ORB.commitState();
             
             if(window.ORB.ui) {
                 window.ORB.ui.updateSceneListUI();
+                // On bascule sur la scène (ce qui déclenche le dessin final)
                 window.ORB.ui.switchToScene(0, true);
             }
         }
@@ -107,18 +124,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             reader.onload = (event) => {
                 try {
                     let parsedData = JSON.parse(event.target.result);
-                    
-                    // COMPATIBILITÉ V3 : Si le JSON contient playbookData, on l'extrait
-                    if (parsedData.playbookData) {
-                        parsedData = parsedData.playbookData;
-                    }
+                    if (parsedData.playbookData) parsedData = parsedData.playbookData;
 
                     if (parsedData.scenes) {
-                        window.ORB.playbookState = parsedData;
-                        window.ORB.appState.currentLoadedPlaybookId = null; 
+                        if (window.ORB.normalizePlaybook) {
+                            window.ORB.playbookState = window.ORB.normalizePlaybook(parsedData);
+                        } else {
+                            window.ORB.playbookState = parsedData;
+                        }
+
+                        // FORCER LE TERRAIN EXACT
+                        const savedCourtType = parsedData.courtType || 'full';
+                        window.ORB.playbookState.courtType = savedCourtType;
                         
+                        window.ORB.appState.currentLoadedPlaybookId = null; 
                         document.getElementById('play-name-input').value = window.ORB.playbookState.name || "";
                         
+                        // APPLIQUER LA VUE DU TERRAIN *AVANT* LE DESSIN
+                        if (window.ORB.ui && typeof window.ORB.ui.setView === 'function') {
+                            const tempCommit = window.ORB.commitState;
+                            window.ORB.commitState = function(){};
+                            window.ORB.ui.setView(savedCourtType);
+                            window.ORB.commitState = tempCommit;
+                        }
+
                         window.ORB.history = [];
                         window.ORB.redoStack = [];
                         window.ORB.commitState();
@@ -143,7 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (exportPdfBtn) {
         exportPdfBtn.addEventListener('click', () => {
             if (window.ORB_UTILS && window.ORB_UTILS.exportToPDF) window.ORB_UTILS.exportToPDF();
-            else alert("L'utilitaire PDF n'est pas chargé.");
+            // L'export réel est géré dans ui.js, ce listener est un fallback
         });
     }
 
@@ -151,7 +180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (exportVideoBtn) {
         exportVideoBtn.addEventListener('click', () => {
             if (window.ORB_UTILS && window.ORB_UTILS.exportToVideo) window.ORB_UTILS.exportToVideo();
-            else alert("L'utilitaire Vidéo n'est pas chargé.");
+            // L'export réel est géré dans ui.js et animation.js
         });
     }
 

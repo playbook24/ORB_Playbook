@@ -17,6 +17,59 @@ window.ORB.ui = {
         this.bindInputMode();
     },
 
+    setView: function(view) {
+        if(window.ORB.playbookState) {
+            window.ORB.playbookState.courtType = view;
+            window.ORB.commitState();
+        }
+
+        document.body.classList.remove("view-full-court", "view-half-court");
+        document.body.classList.add(`view-${view}-court`);
+        
+        const viewFullBtn = document.getElementById('view-full-court-btn');
+        const viewHalfBtn = document.getElementById('view-half-court-btn');
+        if(viewFullBtn) viewFullBtn.classList.toggle("active", view === "full");
+        if(viewHalfBtn) viewHalfBtn.classList.toggle("active", view === "half");
+        
+        const courtSvg = document.getElementById('court-svg');
+        if(courtSvg) {
+            if (view === 'half') {
+                courtSvg.setAttribute('viewBox', '0 0 150 140');
+                courtSvg.innerHTML = `
+                    <rect x="0" y="0" width="150" height="140" fill="var(--color-primary)"/>
+                    <g class="court-lines" stroke="#212121" stroke-width="0.6" fill="none">
+                        <rect x="0" y="0" width="150" height="140"/>
+                        <rect x="46" y="0" width="58" height="50.5" />
+                        <path d="M 46 50.5 A 18 18 0 0 0 104 50.5" />
+                        <path d="M 6 0 L 6 29.1 A 67.5 67.5 0 0 0 144 29.1 L 144 0" />
+                    </g>
+                    <g class="court-lines" stroke="#212121" fill="none" transform="translate(75, 15.75)">
+                        <line x1="-9" y1="-3.75" x2="9" y2="-3.75" stroke-width="0.8"/>
+                        <circle cx="0" cy="0" r="2.25" stroke-width="0.5"/>
+                        <path d="M -12.5 0 A 12.5 12.5 0 0 1 12.5 0" stroke-width="0.6"/>
+                    </g>
+                    <path class="court-lines" d="M 57 140 A 18 18 0 0 1 93 140" stroke="#212121" stroke-width="0.6" fill="none"/>
+                `;
+            } else {
+                courtSvg.setAttribute('viewBox', '0 0 280 150');
+                courtSvg.innerHTML = `
+                    <rect x="0" y="0" width="280" height="150" fill="var(--color-primary)"/>
+                    <g class="court-lines" stroke="#212121" stroke-width="0.6" fill="none"><rect x="0" y="0" width="280" height="150"/><line x1="140" y1="0" x2="140" y2="150"/><rect x="0" y="50.5" width="58" height="49" /><path d="M 58 50.5 A 18 18 0 0 1 58 99.5" /><path d="M 0 6 L 29.1 6 A 67.5 67.5 0 0 1 29.1 144 L 0 144" /><rect x="222" y="50.5" width="58" height="49" /><path d="M 222 50.5 A 18 18 0 0 0 222 99.5" /><path d="M 280 6 L 250.9 6 A 67.5 67.5 0 0 0 250.9 144 L 280 144" /></g>
+                    <g class="center-court-logo">
+                        <circle cx="140" cy="75" r="18" fill="var(--color-primary)" />
+                        <circle class="court-lines" cx="140" cy="75" r="18" fill="none" stroke="#212121" stroke-width="0.6"/>
+                        <text class="court-text-orb" x="140" y="76" font-family="Impact, 'Arial Black', sans-serif" font-size="15" fill="#212121" text-anchor="middle" dominant-baseline="middle" letter-spacing="0.5">ORB</text>
+                        <text class="court-text-crab" x="140" y="76" font-family="Impact, 'Arial Black', sans-serif" font-size="15" fill="#212121" text-anchor="middle" dominant-baseline="middle" letter-spacing="0.5">CRAB</text>
+                    </g>
+                    <g class="court-lines" stroke="#212121" fill="none"><g transform="translate(15.75, 75)"><line x1="-3.75" y1="-9" x2="-3.75" y2="9" stroke-width="0.8"/><circle cx="0" cy="0" r="2.25" stroke-width="0.5"/><path d="M 0 -12.5 A 12.5 12.5 0 0 1 0 12.5" stroke-width="0.6"/></g><g transform="translate(264.25, 75)"><line x1="3.75" y1="-9" x2="3.75" y2="9" stroke-width="0.8"/><circle cx="0" cy="0" r="2.25" stroke-width="0.5"/><path d="M 0 -12.5 A 12.5 12.5 0 0 0 0 12.5" stroke-width="0.6"/></g></g>
+                `;
+            }
+        }
+        if (window.ORB.renderer && typeof window.ORB.renderer.resizeCanvas === 'function') {
+            window.ORB.renderer.resizeCanvas();
+        }
+    },
+
     bindInputMode: function() {
         const btn = document.getElementById('input-mode-btn');
         const iconMouse = document.getElementById('icon-mode-mouse');
@@ -52,8 +105,8 @@ window.ORB.ui = {
         if(document.getElementById('action-mirror')) {
             document.getElementById('action-mirror').addEventListener('click', () => {
                 const pbState = window.ORB.playbookState;
-                const isHalf = document.body.classList.contains('view-half-court');
-                const viewWidth = isHalf ? window.ORB.CONSTANTS.LOGICAL_WIDTH / 2 : window.ORB.CONSTANTS.LOGICAL_WIDTH;
+                const isHalf = window.ORB.playbookState && window.ORB.playbookState.courtType === 'half';
+                const viewWidth = isHalf ? 150 : window.ORB.CONSTANTS.LOGICAL_WIDTH;
                 
                 const currentScene = pbState.scenes[pbState.activeSceneIndex];
                 currentScene.elements.forEach(el => {
@@ -108,22 +161,8 @@ window.ORB.ui = {
         const viewFullBtn = document.getElementById('view-full-court-btn');
         const viewHalfBtn = document.getElementById('view-half-court-btn');
         
-        const setView = (view) => {
-            document.body.classList.remove("view-full-court", "view-half-court");
-            document.body.classList.add(`view-${view}-court`);
-            if(viewFullBtn) viewFullBtn.classList.toggle("active", view === "full");
-            if(viewHalfBtn) viewHalfBtn.classList.toggle("active", view === "half");
-            
-            const courtSvg = document.getElementById('court-svg');
-            if(courtSvg) {
-                if (view === 'half') courtSvg.setAttribute('viewBox', '0 0 140 150');
-                else courtSvg.setAttribute('viewBox', '0 0 280 150');
-            }
-            window.ORB.renderer.resizeCanvas();
-        };
-
-        if(viewFullBtn) viewFullBtn.addEventListener("click", () => setView("full"));
-        if(viewHalfBtn) viewHalfBtn.addEventListener("click", () => setView("half"));
+        if(viewFullBtn) viewFullBtn.addEventListener("click", () => this.setView("full"));
+        if(viewHalfBtn) viewHalfBtn.addEventListener("click", () => this.setView("half"));
     },
 
     updateSceneListUI: function() {
@@ -398,9 +437,88 @@ window.ORB.ui = {
         if(redoBtn && window.ORB.redoStack) redoBtn.disabled = window.ORB.redoStack.length === 0;
     },
 
-    // ==========================================
-    // MODULE FICHIERS & EXPORTS (LA MODALE V4)
-    // ==========================================
+    // --- CORRECTION V4.2 : Aperçu NET et sans couleur noire ---
+    getSnapshot: async function(forPdf = false, forceStandardRatio = false) {
+        return new Promise((resolve) => {
+            const pbState = window.ORB.playbookState;
+            const isHalf = pbState.courtType === 'half';
+            
+            // Dimensions pour l'export (Haute Résolution)
+            const drawW = isHalf ? 1500 : 2800;
+            const drawH = isHalf ? 1400 : 1500;
+            
+            // Échelle de référence pour ne pas avoir de joueurs trop gros ou trop petits
+            const baseW = isHalf ? 450 : 840;
+            const baseH = isHalf ? 420 : 450;
+            
+            const finalW = (isHalf && forceStandardRatio) ? 2800 : drawW;
+            const finalH = (isHalf && forceStandardRatio) ? 1500 : drawH;
+            
+            const tempC = document.createElement('canvas');
+            tempC.width = finalW;
+            tempC.height = finalH;
+            const tCtx = tempC.getContext('2d');
+            
+            const isCrab = document.body.classList.contains('crab-mode');
+            const primaryColor = isCrab ? '#72243D' : '#BFA98D';
+            const secondaryColor = isCrab ? '#F9AB00' : '#212121';
+            
+            // Remplit le fond de sécurité pour éviter le noir JPEG
+            tCtx.fillStyle = primaryColor;
+            tCtx.fillRect(0, 0, finalW, finalH);
+            
+            const offsetX = (finalW - drawW) / 2;
+            const offsetY = (finalH - drawH) / 2;
+            
+            const courtSvg = document.getElementById('court-svg').cloneNode(true);
+            courtSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            courtSvg.setAttribute('width', drawW);
+            courtSvg.setAttribute('height', drawH);
+            courtSvg.setAttribute('viewBox', isHalf ? '0 0 150 140' : '0 0 280 150');
+            courtSvg.setAttribute('preserveAspectRatio', 'none');
+            
+            let xml = new XMLSerializer().serializeToString(courtSvg);
+            
+            // FIX POUR LE FOND NOIR : L'image remplace brutalement les variables CSS par de l'Hexa !
+            xml = xml.replace(/var\(--color-primary\)/gi, primaryColor);
+            if (isCrab) {
+                xml = xml.replace(/#212121/gi, secondaryColor);
+            }
+            
+            const img = new Image();
+            img.onload = () => {
+                tCtx.drawImage(img, offsetX, offsetY, drawW, drawH);
+                
+                const drawC = document.createElement('canvas');
+                drawC.width = drawW;
+                drawC.height = drawH;
+                const dCtx = drawC.getContext('2d');
+                
+                // MULTIPLICATEUR PARFAIT : on aligne la taille des éléments sur un écran classique
+                dCtx.scale(drawW / baseW, drawH / baseH);
+                drawC.getBoundingClientRect = () => ({ width: baseW, height: baseH, left: 0, top: 0 });
+                
+                const originalCanvas = window.ORB.canvas;
+                const originalCtx = window.ORB.ctx;
+                window.ORB.canvas = drawC;
+                window.ORB.ctx = dCtx;
+                
+                window.ORB.renderer.redrawCanvas(); 
+                
+                window.ORB.canvas = originalCanvas;
+                window.ORB.ctx = originalCtx;
+                
+                tCtx.drawImage(drawC, offsetX, offsetY, drawW, drawH);
+                resolve(tempC.toDataURL('image/jpeg', forPdf ? 1.0 : 0.8));
+            };
+            img.onerror = () => {
+                resolve(tempC.toDataURL('image/jpeg', 0.5));
+            };
+            
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(xml)));
+        });
+    },
+
     bindExports: function() {
         const btnToggleMenu = document.getElementById('toggle-playbook-manager-btn');
         const modal = document.getElementById('play-manager-modal');
@@ -411,7 +529,6 @@ window.ORB.ui = {
         
         if(btnToggleMenu && modal) {
             btnToggleMenu.onclick = async () => {
-                // 1. Récupérer toutes les données
                 const folders = await orbDB.getAllFolders();
                 const allTags = await orbDB.getAllTags();
                 const folderSelect = document.getElementById('play-folder-select');
@@ -419,7 +536,6 @@ window.ORB.ui = {
                 let initialFolderId = "";
                 let initialTagIds = [];
 
-                // 2. Vérifier si on édite un exercice existant
                 if(window.ORB.appState.currentLoadedPlaybookId) {
                     if(btnSaveLib) btnSaveLib.textContent = "Mettre à jour l'exercice";
                     if(btnSaveAsNew) btnSaveAsNew.style.display = "block";
@@ -440,7 +556,6 @@ window.ORB.ui = {
                     if(btnSaveAsNew) btnSaveAsNew.style.display = "none";
                 }
 
-                // 3. Fonction pour mettre à jour les cases à cocher (Tags)
                 const updateTagsDropdown = (selectedFolderId) => {
                     const tagContainer = document.getElementById('play-tags-container');
                     if (!tagContainer) return;
@@ -464,21 +579,17 @@ window.ORB.ui = {
                     }).join('');
                 };
 
-                // 4. Peupler les dossiers
                 if (folderSelect) {
                     folderSelect.innerHTML = '<option value="">-- Sélectionner un dossier --</option>' + 
                         folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
                     
-                    // Pré-sélectionner le bon dossier si existant
                     if (initialFolderId) folderSelect.value = initialFolderId;
                     
-                    // Ajouter l'événement de changement de dossier
                     folderSelect.onchange = (e) => {
                         updateTagsDropdown(e.target.value);
                     };
                 }
 
-                // Initialiser la liste de tags pour le dossier actuellement sélectionné
                 updateTagsDropdown(initialFolderId);
                 
                 modal.classList.remove('hidden');
@@ -487,13 +598,11 @@ window.ORB.ui = {
         
         if(btnCloseModal && modal) btnCloseModal.onclick = () => modal.classList.add('hidden');
 
-        // --- FONCTION PRINCIPALE DE SAUVEGARDE (Mise à jour ou Copie) ---
         const executeSave = async (isNewCopy) => {
             const name = document.getElementById('play-name-input').value || 'Schéma sans nom';
             const data = JSON.parse(JSON.stringify(window.ORB.playbookState));
             data.name = name;
             
-            // 5. Récupérer le dossier sélectionné et les tags cochés
             const folderSelect = document.getElementById('play-folder-select');
             const tagCheckboxes = document.querySelectorAll('#play-tags-container .tag-checkbox:checked');
             
@@ -509,22 +618,13 @@ window.ORB.ui = {
                 data.tagIds = [];
             }
             
-            // Si c'est une copie, on met l'ID à null pour forcer la création. Sinon on garde l'ID existant.
             const targetId = isNewCopy ? null : window.ORB.appState.currentLoadedPlaybookId;
 
             window.ORB.renderer.redrawCanvas();
             
-            if (typeof html2canvas === 'undefined') {
-                alert("Erreur: la librairie html2canvas n'est pas chargée. Impossible de faire l'aperçu.");
-                return;
-            }
-
             try {
-                // Capture du terrain complet (fond + dessins)
-                const canvas = await html2canvas(document.getElementById('court-container'), { scale: 0.5 });
-                const base64Preview = canvas.toDataURL('image/jpeg', 0.8);
+                const base64Preview = await this.getSnapshot(false, true);
                 
-                // Sauvegarde
                 const newId = await orbDB.savePlaybook(data, base64Preview, targetId);
                 window.ORB.appState.currentLoadedPlaybookId = newId; 
                 alert(isNewCopy ? '✅ Copie sauvegardée avec succès !' : '✅ Exercice mis à jour !');
@@ -538,8 +638,6 @@ window.ORB.ui = {
         if(btnSaveLib) btnSaveLib.onclick = () => executeSave(false);
         if(btnSaveAsNew) btnSaveAsNew.onclick = () => executeSave(true);
 
-
-        // --- IMPORT / EXPORT JSON ---
         const btnExportJson = document.getElementById('save-file-btn');
         if(btnExportJson) {
             btnExportJson.onclick = async () => {
@@ -547,7 +645,6 @@ window.ORB.ui = {
                 const name = document.getElementById('play-name-input').value || 'Playbook';
                 data.name = name;
 
-                // Intégrer les tags existants dans l'export JSON
                 if (window.ORB.appState.currentLoadedPlaybookId) {
                      try {
                         const original = await orbDB.getPlaybook(window.ORB.appState.currentLoadedPlaybookId, true);
@@ -577,15 +674,26 @@ window.ORB.ui = {
                         let parsedData = JSON.parse(event.target.result);
                         if (parsedData.playbookData) parsedData = parsedData.playbookData; 
                         
-                        window.ORB.playbookState = parsedData;
+                        if (window.ORB.normalizePlaybook) {
+                            window.ORB.playbookState = window.ORB.normalizePlaybook(parsedData);
+                        } else {
+                            window.ORB.playbookState = parsedData;
+                        }
+                        
                         window.ORB.history = [];
                         window.ORB.redoStack = [];
                         window.ORB.commitState();
 
-                        if(parsedData.name) document.getElementById('play-name-input').value = parsedData.name;
+                        if(window.ORB.playbookState.name) {
+                            document.getElementById('play-name-input').value = window.ORB.playbookState.name;
+                        }
                         
                         window.ORB.appState.currentLoadedPlaybookId = null; 
                         if(modal) modal.classList.add('hidden');
+                        
+                        const savedCourtType = window.ORB.playbookState.courtType || 'full';
+                        this.setView(savedCourtType);
+                        
                         window.ORB.renderer.redrawCanvas();
                         this.updateSceneListUI();
                     } catch(err) { alert('Fichier invalide.'); }
@@ -594,7 +702,6 @@ window.ORB.ui = {
             };
         }
 
-        // --- EXPORTS MÉDIAS ---
         const btnExportVideo = document.getElementById('export-video-btn');
         if(btnExportVideo) {
             btnExportVideo.onclick = () => {
@@ -610,7 +717,7 @@ window.ORB.ui = {
         const exportPdfBtn = document.getElementById('export-pdf-btn');
         if (exportPdfBtn) {
             exportPdfBtn.onclick = async () => {
-                 if (typeof window.jspdf === 'undefined' || typeof window.html2canvas === 'undefined') return alert("Erreur lib PDF.");
+                 if (typeof window.jspdf === 'undefined') return alert("Erreur lib PDF.");
                  exportPdfBtn.textContent = "Génération..."; exportPdfBtn.disabled = true;
 
                  const { jsPDF } = window.jspdf;
@@ -619,10 +726,7 @@ window.ORB.ui = {
                  const doc = new jsPDF("landscape", "mm", "a4");
                  const playName = document.getElementById('play-name-input').value || "Playbook";
                  
-                 const svgElement = document.getElementById('court-svg');
-                 const xml = new XMLSerializer().serializeToString(svgElement);
-                 const svg64 = btoa(unescape(encodeURIComponent(xml)));
-                 const bgSrc = 'data:image/svg+xml;base64,' + svg64;
+                 const isHalf = pbState.courtType === 'half';
 
                  for (let i = 0; i < pbState.scenes.length; i++) {
                     if (i > 0) doc.addPage();
@@ -634,23 +738,13 @@ window.ORB.ui = {
                     await this.switchToScene(i, true);
                     await new Promise(r => setTimeout(r, 50));
                     
-                    const tempC = document.createElement('canvas');
-                    tempC.width = 1120; tempC.height = 600;
-                    const tCtx = tempC.getContext('2d');
+                    const imgData = await this.getSnapshot(true, false);
                     
-                    await new Promise(resolve => {
-                        const img = new Image();
-                        img.onload = () => {
-                            tCtx.fillStyle = '#BFA98D'; tCtx.fillRect(0,0, tempC.width, tempC.height);
-                            tCtx.drawImage(img, 0, 0, tempC.width, tempC.height);
-                            tCtx.drawImage(window.ORB.canvas, 0, 0, tempC.width, tempC.height);
-                            resolve();
-                        };
-                        img.src = bgSrc;
-                    });
-
-                    const imgData = tempC.toDataURL('image/jpeg', 0.95);
-                    doc.addImage(imgData, 'JPEG', 20, 35, 257, 137);
+                    if (isHalf) {
+                        doc.addImage(imgData, 'JPEG', 75.1, 35, 146.8, 137);
+                    } else {
+                        doc.addImage(imgData, 'JPEG', 20, 35, 257, 137);
+                    }
                     
                     doc.setTextColor('#333333');
                     if(pbState.scenes[i].comments) {
@@ -660,7 +754,7 @@ window.ORB.ui = {
                  }
                  
                  doc.save(`${playName}.pdf`);
-                 await this.switchToScene(originalIndex);
+                 await this.switchToScene(originalIndex, true);
                  exportPdfBtn.textContent = "Fiche PDF"; exportPdfBtn.disabled = false;
                  if(modal) modal.classList.add('hidden');
             };

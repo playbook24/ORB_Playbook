@@ -23,11 +23,13 @@ window.ORB.interactions = {
     },
 
     getEventPos: function(e) {
-        // NOUVEAU V4 : Fonction ultra-précise pour le responsive
+        // CORRECTION V4 : Synchronisation parfaite avec les dimensions du renderer
         const canvas = window.ORB.canvas;
         const rect = canvas.getBoundingClientRect();
-        const isHalf = document.body.classList.contains('view-half-court');
-        const viewWidth = isHalf ? 140 : 280;
+        
+        const isHalf = window.ORB.playbookState && window.ORB.playbookState.courtType === 'half';
+        const viewWidth = isHalf ? 150 : 280;
+        const viewHeight = isHalf ? 140 : 150;
 
         let clientX = e.clientX;
         let clientY = e.clientY;
@@ -37,15 +39,11 @@ window.ORB.interactions = {
             clientY = e.touches[0].clientY;
         }
 
-        const utils = window.ORB_UTILS || window.ORB.utils;
-        if (utils && utils.getLogicalCoords) {
-            return utils.getLogicalCoords({ clientX, clientY }, rect, viewWidth);
-        } else {
-            return {
-                x: ((clientX - rect.left) / rect.width) * viewWidth,
-                y: ((clientY - rect.top) / rect.height) * 150
-            };
-        }
+        // On calcule directement ici pour garantir que le ratio correspond à 100% au renderer
+        return {
+            x: ((clientX - rect.left) / rect.width) * viewWidth,
+            y: ((clientY - rect.top) / rect.height) * viewHeight
+        };
     },
 
     // --- DÉBUT DE L'ACTION ---
@@ -199,10 +197,14 @@ window.ORB.interactions = {
             }
             
             const currentPos = appState.lastMousePos;
-            const width = window.ORB.CONSTANTS.LOGICAL_WIDTH;
-            const height = window.ORB.CONSTANTS.LOGICAL_HEIGHT;
             
-            if (currentPos.x < -10 || currentPos.x > width + 10 || currentPos.y < -10 || currentPos.y > height + 10) {
+            // CORRECTION V4 : Vérification de la zone de suppression selon le type de terrain
+            const isHalf = window.ORB.playbookState && window.ORB.playbookState.courtType === 'half';
+            const viewWidth = isHalf ? 150 : window.ORB.CONSTANTS.LOGICAL_WIDTH;
+            const viewHeight = isHalf ? 140 : window.ORB.CONSTANTS.LOGICAL_HEIGHT;
+            
+            // Si on sort l'élément du terrain, on le supprime
+            if (currentPos.x < -10 || currentPos.x > viewWidth + 10 || currentPos.y < -10 || currentPos.y > viewHeight + 10) {
                 let elements = window.ORB.playbookState.scenes[window.ORB.playbookState.activeSceneIndex].elements;
                 if (appState.selectedElement.type === 'player') {
                     const balls = elements.filter(b => b.type === 'ball' && b.linkedTo === appState.selectedElement.id);

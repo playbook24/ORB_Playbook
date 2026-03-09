@@ -1,7 +1,7 @@
 /**
  * animation.js
  * Logique d'animation (Storyboard, Tweening) et Export Vidéo.
- * (Version basée sur la V3 fonctionnelle, adaptée pour la V4)
+ * (Version V4 adaptée pour le vrai demi-terrain vertical sans étirement)
  */
 
 window.ORB = window.ORB || {};
@@ -16,7 +16,6 @@ if (typeof window.ORB.animationState.totalDuration === 'undefined') window.ORB.a
 
 window.ORB.animation = {
     
-    // Fonction d'initialisation pour lier le canvas
     init: function() {
         this.animCanvas = document.getElementById('animation-canvas');
         if (this.animCanvas) {
@@ -24,11 +23,9 @@ window.ORB.animation = {
             window.ORB.animCanvas = this.animCanvas;
             window.ORB.animCtx = this.animCtx;
         }
-        // NOUVEAU : On active les boutons de la modale vidéo
         this.bindControls();
     },
 
-    // NOUVEAU : Active les clics sur Play/Pause et Fermer
     bindControls: function() {
         const playPauseBtn = document.getElementById('anim-play-pause-btn');
         const closeBtn = document.getElementById('anim-close-btn');
@@ -36,18 +33,18 @@ window.ORB.animation = {
         if (playPauseBtn) {
             playPauseBtn.onclick = () => {
                 if (window.ORB.animationState.isPlaying) {
-                    this.stopLoop(false); // Met en pause
+                    this.stopLoop(false);
                 } else {
-                    this.startLoop(); // Reprend la lecture
+                    this.startLoop();
                 }
             };
         }
         
         if (closeBtn) {
             closeBtn.onclick = () => {
-                this.stopLoop(false); // Arrête l'animation
+                this.stopLoop(false);
                 const playerModal = document.getElementById('animation-player');
-                if (playerModal) playerModal.classList.add('hidden'); // Cache la modale
+                if (playerModal) playerModal.classList.add('hidden');
             };
         }
     },
@@ -64,21 +61,11 @@ window.ORB.animation = {
         state.totalDuration = 0;
         const MOVEMENT_TOOLS = ['arrow', 'dribble', 'screen'];
 
-        if (courtView === 'half') {
-            const firstSceneElements = pbState.scenes[0].elements.filter(e => e.type === 'player' || e.type === 'defender');
-            if (firstSceneElements.length > 0) {
-                const avgX = firstSceneElements.reduce((sum, el) => sum + el.x, 0) / firstSceneElements.length;
-                state.activeHalf = (avgX > CONSTANTS.LOGICAL_WIDTH / 2) ? 'right' : 'left';
-            } else {
-                state.activeHalf = 'left'; 
-            }
-        }
-
         for (let i = 0; i < pbState.scenes.length - 1; i++) {
             const startScene = pbState.scenes[i];
             const endScene = pbState.scenes[i + 1];
             const transition = {
-                duration: 2000, // On force 2000ms par défaut ici
+                duration: 2000, 
                 passData: [], 
                 passPathData: [],
                 tweens: []
@@ -158,13 +145,11 @@ window.ORB.animation = {
                 transition.tweens.push(tween);
             });
             
-            // Calcul de la durée (2 secondes par défaut)
             if (startScene.durationOverride > 0) {
                 transition.duration = startScene.durationOverride;
             } else {
                 const speed = (pbState.animationSettings && pbState.animationSettings.speed) ? pbState.animationSettings.speed : (CONSTANTS.DEFAULT_ANIMATION_SPEED || 50);
                 const movementDuration = (maxMovementLength / speed) * 1000;
-                // CORRECTION ICI : Force à 2000 millisecondes (2 secondes) minimum
                 const finalDuration = Math.max(2000, movementDuration);
                 const passDuration = CONSTANTS.PASS_DURATION || 800;
                 transition.duration = transition.passData.length > 0 ? Math.max(finalDuration, passDuration) : finalDuration;
@@ -224,7 +209,17 @@ window.ORB.animation = {
             movementProgress = (rawProgress - anticipationRatio) / (1 - anticipationRatio);
         }
         const easedMovementProgress = this.easeInOutQuad(movementProgress);
-        const getCoordsWithRect = (pos) => utils ? utils.getAnimPixelCoords(pos, p_rect, p_animState) : renderer.getPixelCoords(pos);
+        
+        // CORRECTION V4 : On force le calcul en local
+        const isHalf = p_animState.view === 'half';
+        const viewWidth = isHalf ? 150 : 280;
+        const viewHeight = isHalf ? 140 : 150;
+        const getCoordsWithRect = (pos) => {
+             return {
+                 x: (pos.x / viewWidth) * p_rect.width,
+                 y: (pos.y / viewHeight) * p_rect.height
+             };
+        };
         
         p_ctx.save();
         
@@ -326,20 +321,41 @@ window.ORB.animation = {
             window.ORB.animationState.view = courtView;
 
             const animContainer = document.getElementById('animation-container');
-            if(animContainer) animContainer.style.aspectRatio = (courtView === 'half') ? '140 / 150' : '280 / 150';
+            if (animContainer) {
+                // CORRECTION V4 : Fix strict des dimensions pour empêcher le navigateur de compresser le div
+                const targetRatio = courtView === 'half' ? 150 / 140 : 280 / 150;
+                const maxWidth = Math.min(1000, window.innerWidth * 0.9);
+                const maxHeight = window.innerHeight * 0.7; // 70% de l'écran maximum
+                
+                let finalWidth = maxWidth;
+                let finalHeight = finalWidth / targetRatio;
+                
+                // Si la hauteur dépasse ce qu'on a sur l'écran, on réduit par la hauteur
+                if (finalHeight > maxHeight) {
+                    finalHeight = maxHeight;
+                    finalWidth = finalHeight * targetRatio;
+                }
+                
+                animContainer.style.width = finalWidth + 'px';
+                animContainer.style.height = finalHeight + 'px';
+                animContainer.style.maxWidth = 'none'; // Annule la règle CSS limitante
+                animContainer.style.aspectRatio = 'unset'; // On désactive le CSS pour être maître absolu
+            }
             
             const courtSvg = document.getElementById('court-svg').cloneNode(true);
+            
             if (courtView === 'half') {
-                courtSvg.setAttribute('viewBox', '0 0 140 150');
-                const logo = courtSvg.querySelector('.center-court-logo');
-                if (logo) logo.style.display = 'none';
+                courtSvg.setAttribute('viewBox', '0 0 150 140');
             } else {
                 courtSvg.setAttribute('viewBox', '0 0 280 150');
             }
+            // Très important : empêche le SVG de s'étirer indépendamment
+            courtSvg.setAttribute('preserveAspectRatio', 'none');
             
             const bgContainer = document.getElementById('animation-court-background');
             if(bgContainer) bgContainer.innerHTML = courtSvg.outerHTML;
 
+            // Une fois les pixels fixés, on prend la taille parfaite
             const animRect = animContainer.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
             
@@ -441,7 +457,7 @@ window.ORB.animation = {
         }
         
         if (typeof window.CCapture === 'undefined') {
-            alert("Erreur: La bibliothèque d'export vidéo (CCapture.js) n'a pas pu être chargée. Vérifiez que vous êtes connecté à internet ou que le fichier script est bien inclus dans HTML.");
+            alert("Erreur: La bibliothèque d'export vidéo (CCapture.js) n'a pas pu être chargée.");
             return;
         }
 
@@ -465,9 +481,11 @@ window.ORB.animation = {
             });
 
             const offscreenCanvas = document.createElement('canvas');
-            const viewWidth = courtView === 'half' ? 140 : 280;
-            const logicalHeight = (window.ORB.CONSTANTS && window.ORB.CONSTANTS.LOGICAL_HEIGHT) ? window.ORB.CONSTANTS.LOGICAL_HEIGHT : 150;
-            const aspectRatio = viewWidth / logicalHeight;
+            
+            // CORRECTION V4 : Dimensions garanties 
+            const viewWidth = courtView === 'half' ? 150 : 280;
+            const viewHeight = courtView === 'half' ? 140 : 150;
+            const aspectRatio = viewWidth / viewHeight;
             
             const maxDimension = 1920;
             if (aspectRatio >= 1) { 
@@ -484,12 +502,14 @@ window.ORB.animation = {
             const courtSvg = document.getElementById('court-svg').cloneNode(true);
             courtSvg.setAttribute('width', offscreenCanvas.width);
             courtSvg.setAttribute('height', offscreenCanvas.height);
-            courtSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-            courtSvg.setAttribute('viewBox', courtView === 'half' ? (window.ORB.animationState.activeHalf === 'right' ? '140 0 140 150' : '0 0 140 150') : '0 0 280 150');
+            
             if (courtView === 'half') {
-                const centerLogo = courtSvg.querySelector('.center-court-logo');
-                if(centerLogo) centerLogo.remove();
+                courtSvg.setAttribute('viewBox', '0 0 150 140');
+            } else {
+                courtSvg.setAttribute('viewBox', '0 0 280 150');
             }
+            // Forcer à remplir le canvas sans ajustement proportionnel "meet" qui pourrait causer des bandes noires
+            courtSvg.setAttribute('preserveAspectRatio', 'none'); 
             
             const svgString = new XMLSerializer().serializeToString(courtSvg);
             const imgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });

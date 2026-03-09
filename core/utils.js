@@ -1,31 +1,31 @@
 /**
  * core/utils.js
  * Utilitaires partagés (Coordonnées, Bézier, Couleurs, Animation).
- * Fusion V3/V4 pour restaurer la vidéo, l'animation et le responsive.
+ * Adapté V4 avec prise en charge du demi-terrain vertical (150x140).
  */
 
 window.ORB = window.ORB || {};
 
 window.ORB.utils = {
     
-    // --- COORDONNÉES ÉCRAN ET SOURIS (Adapté V4 Demi-terrain) ---
+    // --- COORDONNÉES ÉCRAN ET SOURIS (Adapté V4 Demi-terrain Vertical) ---
 
     getPixelCoords: function(logicalPos) {
         if (!window.ORB.canvas) return logicalPos;
-        const CONSTANTS = window.ORB.CONSTANTS || { LOGICAL_WIDTH: 280, LOGICAL_HEIGHT: 150 };
         const rect = window.ORB.canvas.getBoundingClientRect();
-        const isHalf = document.body.classList.contains('view-half-court');
-        const viewWidth = isHalf ? (CONSTANTS.LOGICAL_WIDTH / 2) : CONSTANTS.LOGICAL_WIDTH;
+        
+        const isHalf = window.ORB.playbookState && window.ORB.playbookState.courtType === 'half';
+        const viewWidth = isHalf ? 150 : 280;
+        const viewHeight = isHalf ? 140 : 150;
         
         return {
             x: (logicalPos.x / viewWidth) * rect.width,
-            y: (logicalPos.y / CONSTANTS.LOGICAL_HEIGHT) * rect.height
+            y: (logicalPos.y / viewHeight) * rect.height
         };
     },
 
     getLogicalCoords: function(event, customRect, customViewWidth) {
         const canvas = window.ORB.canvas;
-        const CONSTANTS = window.ORB.CONSTANTS || { LOGICAL_WIDTH: 280, LOGICAL_HEIGHT: 150 };
         const rect = customRect || (canvas ? canvas.getBoundingClientRect() : {left: 0, top: 0, width: 800, height: 428});
         
         let clientX = event.clientX;
@@ -39,12 +39,13 @@ window.ORB.utils = {
         const pixelX = clientX - rect.left;
         const pixelY = clientY - rect.top;
         
-        const isHalf = document.body.classList.contains('view-half-court');
-        const viewWidth = customViewWidth || (isHalf ? (CONSTANTS.LOGICAL_WIDTH / 2) : CONSTANTS.LOGICAL_WIDTH);
+        const isHalf = window.ORB.playbookState && window.ORB.playbookState.courtType === 'half';
+        const viewWidth = customViewWidth || (isHalf ? 150 : 280);
+        const viewHeight = isHalf ? 140 : 150;
         
         return {
             x: (pixelX / rect.width) * viewWidth,
-            y: (pixelY / rect.height) * CONSTANTS.LOGICAL_HEIGHT
+            y: (pixelY / rect.height) * viewHeight
         };
     },
 
@@ -52,25 +53,21 @@ window.ORB.utils = {
 
     getAnimPixelCoords: function(logicalPos, customRect = null, p_animationState) {
         const animCanvas = window.ORB.animCanvas;
-        const CONSTANTS = window.ORB.CONSTANTS || { LOGICAL_WIDTH: 280, LOGICAL_HEIGHT: 150 };
         const state = p_animationState || window.ORB.animationState;
         
         const rect = customRect || (animCanvas ? animCanvas.getBoundingClientRect() : {width: 800, height: 428});
-        const viewWidth = (state.view === 'half') ? (CONSTANTS.LOGICAL_WIDTH / 2) : CONSTANTS.LOGICAL_WIDTH;
         
-        let transformedX = logicalPos.x;
-        // Décalage si l'action se passe sur la partie droite du demi-terrain
-        if (state.view === 'half' && state.activeHalf === 'right') {
-            transformedX -= (CONSTANTS.LOGICAL_WIDTH / 2);
-        }
+        const isHalf = state.view === 'half';
+        const viewWidth = isHalf ? 150 : 280;
+        const viewHeight = isHalf ? 140 : 150;
 
         return {
-            x: (transformedX / viewWidth) * rect.width,
-            y: (logicalPos.y / CONSTANTS.LOGICAL_HEIGHT) * rect.height
+            x: (logicalPos.x / viewWidth) * rect.width,
+            y: (logicalPos.y / viewHeight) * rect.height
         };
     },
 
-    // --- MATHÉMATIQUES & GÉOMÉTRIE (Restauration V3) ---
+    // --- MATHÉMATIQUES & GÉOMÉTRIE ---
 
     getDistanceToSegment: function(p, v, w) {
         const l2 = Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);

@@ -21,6 +21,7 @@ window.ORB = {
         const normalizedData = {
             name: importedData.name || "Playbook Importé",
             version: 4, // On force la version V4
+            courtType: importedData.courtType || 'full', // Sauvegarde du type de terrain
             animationSettings: importedData.animationSettings || { speed: 50, ratio: 0.3 },
             scenes: importedData.scenes || [],
             tagIds: importedData.tagIds || []
@@ -61,6 +62,7 @@ window.ORB = {
     playbookState: {
         name: "Nouveau Playbook",
         version: 4,
+        courtType: 'full', // Terrain par défaut
         scenes: [{ name: "Scène 1", elements: [], comments: '', durationOverride: null }],
         activeSceneIndex: 0,
         animationSettings: { speed: 50, ratio: 0.3 }
