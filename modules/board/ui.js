@@ -476,6 +476,22 @@ window.ORB.ui = {
             courtSvg.setAttribute('height', drawH);
             courtSvg.setAttribute('viewBox', isHalf ? '0 0 150 140' : '0 0 280 150');
             courtSvg.setAttribute('preserveAspectRatio', 'none');
+
+            // --- CORRECTION TEXTE SUPERPOSÉ (ORB vs CRAB) ---
+            if (isCrab) {
+                const textOrb = courtSvg.querySelector('.court-text-orb');
+                const textCrab = courtSvg.querySelector('.court-text-crab');
+                if (textOrb) textOrb.setAttribute('display', 'none');
+                if (textCrab) {
+                    textCrab.setAttribute('display', 'block');
+                    textCrab.setAttribute('fill', secondaryColor);
+                }
+            } else {
+                const textOrb = courtSvg.querySelector('.court-text-orb');
+                const textCrab = courtSvg.querySelector('.court-text-crab');
+                if (textCrab) textCrab.setAttribute('display', 'none');
+                if (textOrb) textOrb.setAttribute('display', 'block');
+            }
             
             let xml = new XMLSerializer().serializeToString(courtSvg);
             

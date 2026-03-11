@@ -210,7 +210,6 @@ window.ORB.animation = {
         }
         const easedMovementProgress = this.easeInOutQuad(movementProgress);
         
-        // CORRECTION V4 : On force le calcul en local
         const isHalf = p_animState.view === 'half';
         const viewWidth = isHalf ? 150 : 280;
         const viewHeight = isHalf ? 140 : 150;
@@ -322,15 +321,13 @@ window.ORB.animation = {
 
             const animContainer = document.getElementById('animation-container');
             if (animContainer) {
-                // CORRECTION V4 : Fix strict des dimensions pour empêcher le navigateur de compresser le div
                 const targetRatio = courtView === 'half' ? 150 / 140 : 280 / 150;
                 const maxWidth = Math.min(1000, window.innerWidth * 0.9);
-                const maxHeight = window.innerHeight * 0.7; // 70% de l'écran maximum
+                const maxHeight = window.innerHeight * 0.7; 
                 
                 let finalWidth = maxWidth;
                 let finalHeight = finalWidth / targetRatio;
                 
-                // Si la hauteur dépasse ce qu'on a sur l'écran, on réduit par la hauteur
                 if (finalHeight > maxHeight) {
                     finalHeight = maxHeight;
                     finalWidth = finalHeight * targetRatio;
@@ -338,8 +335,8 @@ window.ORB.animation = {
                 
                 animContainer.style.width = finalWidth + 'px';
                 animContainer.style.height = finalHeight + 'px';
-                animContainer.style.maxWidth = 'none'; // Annule la règle CSS limitante
-                animContainer.style.aspectRatio = 'unset'; // On désactive le CSS pour être maître absolu
+                animContainer.style.maxWidth = 'none'; 
+                animContainer.style.aspectRatio = 'unset'; 
             }
             
             const courtSvg = document.getElementById('court-svg').cloneNode(true);
@@ -349,13 +346,11 @@ window.ORB.animation = {
             } else {
                 courtSvg.setAttribute('viewBox', '0 0 280 150');
             }
-            // Très important : empêche le SVG de s'étirer indépendamment
-            courtSvg.setAttribute('preserveAspectRatio', 'none');
+            courtSvg.setAttribute('preserveAspectRatio', 'none'); 
             
             const bgContainer = document.getElementById('animation-court-background');
             if(bgContainer) bgContainer.innerHTML = courtSvg.outerHTML;
 
-            // Une fois les pixels fixés, on prend la taille parfaite
             const animRect = animContainer.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
             
@@ -482,7 +477,6 @@ window.ORB.animation = {
 
             const offscreenCanvas = document.createElement('canvas');
             
-            // CORRECTION V4 : Dimensions garanties 
             const viewWidth = courtView === 'half' ? 150 : 280;
             const viewHeight = courtView === 'half' ? 140 : 150;
             const aspectRatio = viewWidth / viewHeight;
@@ -508,10 +502,37 @@ window.ORB.animation = {
             } else {
                 courtSvg.setAttribute('viewBox', '0 0 280 150');
             }
-            // Forcer à remplir le canvas sans ajustement proportionnel "meet" qui pourrait causer des bandes noires
             courtSvg.setAttribute('preserveAspectRatio', 'none'); 
+
+            // --- CORRECTION TEXTE SUPERPOSÉ POUR LA VIDÉO ---
+            const isCrab = document.body.classList.contains('crab-mode');
+            const colors = window.ORB.CONSTANTS ? window.ORB.CONSTANTS.COLORS : { crabPrimary: '#72243D', primary: '#BFA98D', crabSecondary: '#F9AB00', secondary: '#212121' };
+            const bgFill = isCrab ? (colors.crabPrimary || '#72243D') : (colors.primary || '#BFA98D');
+            const secondaryColor = isCrab ? (colors.crabSecondary || '#F9AB00') : (colors.secondary || '#212121');
+
+            if (isCrab) {
+                const textOrb = courtSvg.querySelector('.court-text-orb');
+                const textCrab = courtSvg.querySelector('.court-text-crab');
+                if (textOrb) textOrb.setAttribute('display', 'none');
+                if (textCrab) {
+                    textCrab.setAttribute('display', 'block');
+                    textCrab.setAttribute('fill', secondaryColor);
+                }
+            } else {
+                const textOrb = courtSvg.querySelector('.court-text-orb');
+                const textCrab = courtSvg.querySelector('.court-text-crab');
+                if (textCrab) textCrab.setAttribute('display', 'none');
+                if (textOrb) textOrb.setAttribute('display', 'block');
+            }
             
-            const svgString = new XMLSerializer().serializeToString(courtSvg);
+            let svgString = new XMLSerializer().serializeToString(courtSvg);
+            
+            // Correction couleurs variables CSS pour la vidéo aussi !
+            svgString = svgString.replace(/var\(--color-primary\)/gi, bgFill);
+            if (isCrab) {
+                svgString = svgString.replace(/#212121/gi, secondaryColor);
+            }
+
             const imgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
             const imgUrl = URL.createObjectURL(imgBlob);
             const courtImage = await new Promise((resolve, reject) => {
@@ -526,10 +547,6 @@ window.ORB.animation = {
             const timeStep = 1000 / FRAMERATE;
 
             capturer.start();
-
-            const isCrab = document.body.classList.contains('crab-mode');
-            const colors = window.ORB.CONSTANTS ? window.ORB.CONSTANTS.COLORS : { crabPrimary: '#72243D', primary: '#BFA98D' };
-            const bgFill = isCrab ? (colors.crabPrimary || '#72243D') : (colors.primary || '#BFA98D');
 
             const renderFrame = () => {
                 if (elapsed > totalDuration) {
