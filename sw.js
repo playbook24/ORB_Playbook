@@ -1,4 +1,4 @@
-const CACHE_NAME = 'orb-playbook-v1';
+const CACHE_NAME = 'orb-playbook-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -34,6 +34,7 @@ const ASSETS_TO_CACHE = [
 
 // Installation du Service Worker et mise en cache
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Force le service worker à s'activer immédiatement
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -71,6 +72,8 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
+    }).then(() => {
+      return self.clients.claim(); // Prend le contrôle des clients sans attendre le prochain rechargement
     })
   );
 });
