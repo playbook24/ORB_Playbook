@@ -4,11 +4,13 @@
  */
 
 const SheetStudio = {
-    allPlaybooks: [], allPlans: [], allSheets: [], allTags: [], allSheetTags: [], allFolders: [],
+    allPlaybooks: [], allPlans: [], allSheets: [], allTags: [], allSheetTags: [], allFolders: [], allPlanFolders: [],
     currentMode: null, currentPlanId: null, currentSheetId: null,
     
     exoViewMode: 'FOLDERS', 
     currentExoFolderId: null,
+    planViewMode: 'FOLDERS',
+    currentPlanFolderId: null,
     activeTagExo: null, 
     activeTagStorage: null,
     
@@ -49,6 +51,8 @@ const SheetStudio = {
         };
         this.listExo = document.getElementById('list-select-exo');
         this.listPlan = document.getElementById('list-select-plan');
+        this.planTitle = document.getElementById('sheet-plan-title');
+        this.btnPlanBack = document.getElementById('btn-sheet-plan-back');
         this.listStorage = document.getElementById('list-storage');
         this.pagesContainer = document.getElementById('pages-container');
         this.workspace = document.getElementById('workspace');
@@ -70,7 +74,24 @@ const SheetStudio = {
             this.renderSelectExoView();
         };
 
-        document.getElementById('nav-new-plan').onclick = () => { this.currentSheetId = null; this.switchView('selectPlan'); };
+        document.getElementById('nav-new-plan').onclick = () => { 
+            this.currentSheetId = null; 
+            this.planViewMode = 'FOLDERS';
+            this.currentPlanFolderId = null;
+            this.switchView('selectPlan'); 
+            this.renderSelectPlanList();
+        };
+
+        this.btnPlanBack.onclick = () => {
+            if (this.planViewMode === 'PLANS') {
+                this.planViewMode = 'FOLDERS';
+                this.currentPlanFolderId = null;
+                this.renderSelectPlanList();
+            } else {
+                this.switchView('hub');
+            }
+        };
+
         document.getElementById('nav-storage').onclick = () => { this.switchView('storage'); };
         
         this.searchExo.oninput = (e) => this.renderExoPlaybooks(e.target.value);
@@ -181,13 +202,14 @@ const SheetStudio = {
 
     async loadData() {
         try {
-            [this.allPlaybooks, this.allPlans, this.allSheets, this.allTags, this.allSheetTags, this.allFolders] = await Promise.all([
-                orbDB.getAllPlaybooks(), orbDB.getAllPlans(), orbDB.getAllSheets(), orbDB.getAllTags(), orbDB.getAllSheetTags(), orbDB.getAllFolders()
+            [this.allPlaybooks, this.allPlans, this.allSheets, this.allTags, this.allSheetTags, this.allFolders, this.allPlanFolders] = await Promise.all([
+                orbDB.getAllPlaybooks(), orbDB.getAllPlans(), orbDB.getAllSheets(), orbDB.getAllTags(), orbDB.getAllSheetTags(), orbDB.getAllFolders(), orbDB.getAllPlanFolders()
             ]);
         } catch(e) {
             console.warn("Base de données en cours de mise à jour, fallback activé.");
             this.allSheetTags = [];
             this.allFolders = [];
+            this.allPlanFolders = [];
         }
         this.renderTagsFilterStorage();
         this.renderSelectPlanList();
@@ -292,12 +314,50 @@ const SheetStudio = {
 
     renderSelectPlanList() {
         this.listPlan.innerHTML = '';
-        this.allPlans.reverse().forEach(plan => {
-            const div = document.createElement('div'); div.className = 'grid-card';
-            div.innerHTML = `<div style="height:110px; display:flex; align-items:center; justify-content:center; background:#2a2a2a; border-radius:4px; margin-bottom:10px;"><span style="color:var(--color-primary); font-size:2em; font-weight:bold;">${plan.playbookIds.length} Exos</span></div> <strong>${plan.name || 'Sans nom'}</strong>`;
-            div.onclick = () => this.startEditor('plan', plan.id);
-            this.listPlan.appendChild(div);
-        });
+        
+        if (this.planViewMode === 'FOLDERS') {
+            this.planTitle.textContent = "Vos Dossiers de Séances";
+            
+            const divAll = document.createElement('div'); 
+            divAll.className = 'grid-card';
+            divAll.innerHTML = `<div style="height:110px; background:rgba(255,255,255,0.05); border-radius:4px; margin-bottom:10px; display:flex; align-items:center; justify-content:center;">${this.iconAll}</div> <strong>Toutes les séances</strong>`;
+            divAll.onclick = () => { this.planViewMode = 'PLANS'; this.currentPlanFolderId = 'ALL'; this.renderSelectPlanList(); };
+            this.listPlan.appendChild(divAll);
+
+            this.allPlanFolders.forEach(folder => {
+                const count = this.allPlans.filter(p => p.folderIds && p.folderIds.includes(folder.id)).length;
+                const div = document.createElement('div'); 
+                div.className = 'grid-card';
+                div.innerHTML = `<div style="height:110px; background:rgba(255,255,255,0.05); border-radius:4px; margin-bottom:10px; display:flex; align-items:center; justify-content:center;">${this.iconFolder}</div> <strong>${folder.name}</strong><span style="font-size:0.85em; opacity:0.6;">${count} séance(s)</span>`;
+                div.onclick = () => { this.planViewMode = 'PLANS'; this.currentPlanFolderId = folder.id; this.planTitle.textContent = folder.name; this.renderSelectPlanList(); };
+                this.listPlan.appendChild(div);
+            });
+        } else {
+            // Vue PLANS
+            let folderName = "Toutes les séances";
+            if (this.currentPlanFolderId !== 'ALL') {
+                const f = this.allPlanFolders.find(x => x.id === this.currentPlanFolderId);
+                if (f) folderName = f.name;
+            }
+            this.planTitle.textContent = folderName;
+
+            let filteredPlans = this.allPlans;
+            if (this.currentPlanFolderId !== 'ALL') {
+                filteredPlans = filteredPlans.filter(p => p.folderIds && p.folderIds.includes(this.currentPlanFolderId));
+            }
+
+            if (filteredPlans.length === 0) {
+                this.listPlan.innerHTML = '<p style="grid-column: 1/-1; text-align:center; opacity:0.6; padding: 20px;">Aucune séance trouvée.</p>';
+                return;
+            }
+
+            filteredPlans.reverse().forEach(plan => {
+                const div = document.createElement('div'); div.className = 'grid-card';
+                div.innerHTML = `<div style="height:110px; display:flex; align-items:center; justify-content:center; background:#2a2a2a; border-radius:4px; margin-bottom:10px;"><span style="color:var(--color-primary); font-size:2em; font-weight:bold;">${plan.playbookIds.length} Exos</span></div> <strong>${plan.name || 'Sans nom'}</strong>`;
+                div.onclick = () => this.startEditor('plan', plan.id);
+                this.listPlan.appendChild(div);
+            });
+        }
     },
 
     renderStorageList() {

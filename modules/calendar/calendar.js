@@ -6,6 +6,12 @@ const CalendarModule = {
     currentDate: new Date(),
     selectedDateStr: null,
     currentEvent: null,
+    
+    // NOUVEAU : Gestion des dossiers pour le sélecteur
+    pickerViewMode: 'FOLDERS',
+    currentPickerFolderId: null,
+    allPlanFolders: [],
+    allPlans: [],
 
     async init() {
         this.cacheDOM();
@@ -22,6 +28,8 @@ const CalendarModule = {
         
         this.planPickerModal = document.getElementById('plan-picker-modal');
         this.planPickerList = document.getElementById('plan-picker-list');
+        this.planPickerTitle = document.getElementById('plan-picker-title');
+        this.btnPickerBack = document.getElementById('btn-picker-back');
         this.eventPlanEmpty = document.getElementById('event-plan-empty');
         this.eventPlanSelected = document.getElementById('event-plan-selected');
         
@@ -45,6 +53,13 @@ const CalendarModule = {
 
         document.getElementById('btn-open-plan-picker').onclick = () => this.openPlanPicker();
         document.getElementById('plan-picker-close-btn').onclick = () => this.planPickerModal.classList.add('hidden');
+        this.btnPickerBack.onclick = () => {
+            if (this.pickerViewMode === 'PLANS') {
+                this.pickerViewMode = 'FOLDERS';
+                this.renderPlanPicker();
+            }
+        };
+
         document.getElementById('btn-remove-snapshot').onclick = () => {
             this.currentEvent.planSnapshot = null;
             this.updatePlanUI();
@@ -184,39 +199,101 @@ const CalendarModule = {
     },
 
     async openPlanPicker() {
-        const plans = await orbDB.getAllPlans();
-        this.planPickerList.innerHTML = '';
-        if (plans.length === 0) {
-            this.planPickerList.innerHTML = '<p style="text-align:center; opacity:0.6;">Aucun plan disponible. Créez-en un dans le Planificateur.</p>';
-        } else {
-            plans.reverse().forEach(plan => {
-                const div = document.createElement('div');
-                div.style.cssText = "padding: 15px; border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; background: var(--color-background); transition: all 0.2s;";
-                div.innerHTML = `<h4 style="margin:0; color:var(--color-primary);">${plan.name}</h4><p style="margin:5px 0 0 0; font-size:0.85em; opacity:0.7;">${plan.playbookIds.length} exercices</p>`;
-                div.onmouseover = () => div.style.borderColor = "var(--color-primary)";
-                div.onmouseout = () => div.style.borderColor = "var(--color-border)";
-                
-                div.onclick = async () => {
-                    const fullPlan = await orbDB.getPlan(plan.id);
-                    if (fullPlan) {
-                        const snapshot = {
-                            name: fullPlan.name,
-                            notes: fullPlan.notes,
-                            playbooks: []
-                        };
-                        for (let pbId of fullPlan.playbookIds) {
-                            const pb = await orbDB.getPlaybook(pbId);
-                            if (pb) snapshot.playbooks.push(pb);
-                        }
-                        this.currentEvent.planSnapshot = snapshot;
-                        this.updatePlanUI();
-                        this.planPickerModal.classList.add('hidden');
-                    }
-                };
-                this.planPickerList.appendChild(div);
-            });
-        }
+        this.allPlans = await orbDB.getAllPlans();
+        this.allPlanFolders = await orbDB.getAllPlanFolders();
+        this.pickerViewMode = 'FOLDERS';
+        this.currentPickerFolderId = null;
+        this.renderPlanPicker();
         this.planPickerModal.classList.remove('hidden');
+    },
+
+    renderPlanPicker() {
+        this.planPickerList.innerHTML = '';
+
+        if (this.pickerViewMode === 'FOLDERS') {
+            this.planPickerTitle.textContent = "Choisir un dossier";
+            this.btnPickerBack.classList.add('hidden');
+            this.planPickerList.style.display = 'grid';
+            this.planPickerList.style.gridTemplateColumns = 'repeat(auto-fill, minmax(130px, 1fr))';
+            this.planPickerList.style.gap = '15px';
+            this.planPickerList.style.padding = '5px';
+
+            const createFolderCard = (title, count, isAll, targetId) => {
+                const fCard = document.createElement('div');
+                fCard.style.cssText = "padding: 20px 10px; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; background: var(--color-container); text-align: center; transition: all 0.2s;";
+                fCard.innerHTML = `
+                    <svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:var(--color-primary);margin-bottom:10px;">
+                        ${isAll ? '<path d="M4,6H2V20A2,2 0 0,0 4,22H18V20H4V6M20,2H8A2,2 0 0,0 6,4V16A2,2 0 0,0 8,18H20A2,2 0 0,0 22,16V4A2,2 0 0,0 20,2M20,16H8V4H20V16Z"/>' : '<path d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z"/>'}
+                    </svg>
+                    <div style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${title}</div>
+                    ${count !== null ? `<div style="font-size:0.85em; opacity:0.6; margin-top:5px;">${count} séance(s)</div>` : ''}
+                `;
+                fCard.onmouseover = () => fCard.style.borderColor = "var(--color-primary)";
+                fCard.onmouseout = () => fCard.style.borderColor = "var(--color-border)";
+                fCard.onclick = () => {
+                    this.pickerViewMode = 'PLANS';
+                    this.currentPickerFolderId = targetId;
+                    this.renderPlanPicker();
+                };
+                return fCard;
+            };
+
+            this.planPickerList.appendChild(createFolderCard("Toutes les séances", this.allPlans.length, true, 'ALL'));
+
+            this.allPlanFolders.forEach(folder => {
+                const count = this.allPlans.filter(p => p.folderIds && p.folderIds.includes(folder.id)).length;
+                this.planPickerList.appendChild(createFolderCard(folder.name, count, false, folder.id));
+            });
+
+        } else {
+            // Vue PLANS
+            this.btnPickerBack.classList.remove('hidden');
+            let folderName = "Toutes les séances";
+            if (this.currentPickerFolderId !== 'ALL') {
+                const f = this.allPlanFolders.find(x => x.id === this.currentPickerFolderId);
+                if (f) folderName = f.name;
+            }
+            this.planPickerTitle.textContent = folderName;
+            
+            this.planPickerList.style.display = 'block';
+            this.planPickerList.style.padding = '5px';
+
+            let filteredPlans = this.allPlans;
+            if (this.currentPickerFolderId !== 'ALL') {
+                filteredPlans = filteredPlans.filter(p => p.folderIds && p.folderIds.includes(this.currentPickerFolderId));
+            }
+
+            if (filteredPlans.length === 0) {
+                this.planPickerList.innerHTML = '<p style="text-align:center; opacity:0.6; padding:20px;">Aucune séance dans ce dossier.</p>';
+            } else {
+                filteredPlans.reverse().forEach(plan => {
+                    const div = document.createElement('div');
+                    div.style.cssText = "padding: 15px; border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; background: var(--color-background); transition: all 0.2s;";
+                    div.innerHTML = `<h4 style="margin:0; color:var(--color-primary);">${plan.name}</h4><p style="margin:5px 0 0 0; font-size:0.85em; opacity:0.7;">${plan.playbookIds.length} exercices</p>`;
+                    div.onmouseover = () => div.style.borderColor = "var(--color-primary)";
+                    div.onmouseout = () => div.style.borderColor = "var(--color-border)";
+                    
+                    div.onclick = async () => {
+                        const fullPlan = await orbDB.getPlan(plan.id);
+                        if (fullPlan) {
+                            const snapshot = {
+                                name: fullPlan.name,
+                                notes: fullPlan.notes,
+                                playbooks: []
+                            };
+                            for (let pbId of fullPlan.playbookIds) {
+                                const pb = await orbDB.getPlaybook(pbId);
+                                if (pb) snapshot.playbooks.push(pb);
+                            }
+                            this.currentEvent.planSnapshot = snapshot;
+                            this.updatePlanUI();
+                            this.planPickerModal.classList.add('hidden');
+                        }
+                    };
+                    this.planPickerList.appendChild(div);
+                });
+            }
+        }
     },
 
     async viewPlanDetails() {
