@@ -182,6 +182,15 @@ window.ORB.ui = {
 
             li.addEventListener("click", () => this.switchToScene(index));
 
+            li.addEventListener("dblclick", () => {
+                const newName = prompt("Nouveau nom de la scène :", scene.name || `Scène ${index + 1}`);
+                if (newName && newName.trim()) {
+                    scene.name = newName.trim();
+                    window.ORB.commitState();
+                    this.updateSceneListUI();
+                }
+            });
+
             li.addEventListener("dragstart", e => {
                 appState.draggedSceneIndex = index;
                 e.target.classList.add("dragging");
@@ -422,12 +431,12 @@ window.ORB.ui = {
                 container.appendChild(d);
             });
         };
-        const elitePalette = ['#BFA98D', '#d1bc9f', '#FFFFFF', '#AAAAAA', '#444444', '#000000'];
-        createPalette('player-props', elitePalette); createPalette('defender-props', elitePalette);
-        createPalette('path-props', elitePalette); createPalette('text-props', elitePalette);
-        createPalette('cone-props', elitePalette); createPalette('hoop-props', elitePalette);
-        createPalette('zone-props', ['#BFA98D', '#444444', '#222222']);
-        createPalette('basket-props', ['#BFA98D', '#000000']);
+        const basicPalette = ['#FF0000', '#0000FF', '#008000', '#FFFF00', '#FFA500', '#800080', '#000000', '#FFFFFF'];
+        createPalette('player-props', basicPalette); createPalette('defender-props', basicPalette);
+        createPalette('path-props', basicPalette); createPalette('text-props', basicPalette);
+        createPalette('cone-props', basicPalette); createPalette('hoop-props', basicPalette);
+        createPalette('zone-props', basicPalette);
+        createPalette('basket-props', basicPalette);
     },
 
     updateUndoRedoButtons: function () {

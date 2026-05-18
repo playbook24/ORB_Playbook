@@ -27,11 +27,63 @@
         .help-container strong { color: var(--color-text); }
         
         .warning-box {
-            background-color: rgba(249, 171, 0, 0.1);
-            border-left: 4px solid #F9AB00;
+            background-color: rgba(var(--color-primary-rgb, 191, 169, 141), 0.1);
+            border-left: 4px solid var(--color-primary);
             padding: 15px;
             margin-top: 30px;
             border-radius: 4px;
+        }
+
+        details {
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        summary {
+            padding: 15px 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: var(--color-primary);
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+            transition: background 0.3s;
+        }
+
+        summary:hover {
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary::after {
+            content: '+';
+            font-size: 1.5em;
+            color: var(--color-text);
+            transition: transform 0.3s;
+        }
+
+        details[open] summary::after {
+            content: '−';
+        }
+
+        .details-content {
+            padding: 20px;
+            border-top: 1px solid var(--color-border);
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -47,46 +99,130 @@
     </header>
 
     <main class="help-container">
-        <h2>Bienvenue sur ORB Tactical Board</h2>
-        <p>Cet outil est conçu pour vous permettre de créer, sauvegarder et organiser vos schémas tactiques de basketball de la manière la plus intuitive possible. Voici un aperçu de ses fonctionnalités.</p>
+        <h2>Bienvenue sur l'Aide ORB</h2>
+        <p>Ce guide complet vous explique en détail le fonctionnement de chaque page et fonctionnalité de votre application ORB Tactical Board.</p>
 
-        <h3>1. Playbook (L'Éditeur Tactique)</h3>
-        <ul>
-            <li><strong>Création :</strong> Dessinez vos systèmes tactiques à l'aide de la souris ou de votre stylet.</li>
-            <li><strong>Animation :</strong> Vous pouvez animer vos scènes (le ballon suit automatiquement le joueur auquel il est lié).</li>
-            <li><strong>Sauvegarde :</strong> Enregistrez vos systèmes dans la <em>Bibliothèque</em> locale pour ne jamais les perdre.</li>
-        </ul>
-        
-        <h3>2. Bibliothèque & Tags</h3>
-        <ul>
-            <li><strong>Organisation :</strong> Retrouvez tous vos dessins sauvegardés.</li>
-            <li><strong>Catégorisation :</strong> Créez des "Tags" (ex: Pick&Roll, Touche, Défense) et assignez-les à vos playbooks pour les filtrer facilement.</li>
-        </ul>
+        <details>
+            <summary>1. Accueil (Tableau de Bord)</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Navigation :</strong> L'accueil centralise l'accès à toutes les autres pages via des boutons principaux (Playbook, Bibliothèque, Séance, Calendrier, Effectif, Paramètres, Archives, Aide).</li>
+                    <li><strong>Sauvegarde Cloud :</strong> Vous y trouverez les boutons Google Drive pour sauvegarder (Envoyer) toutes vos données sur votre compte Google ou les restaurer (Charger) sur un nouvel appareil.</li>
+                    <li><strong>Backup Local :</strong> En bas de la page, vous pouvez créer un fichier `.json` contenant toute votre base de données locale (Exporter le Backup), ou en charger un (Importer le Backup).</li>
+                </ul>
+            </div>
+        </details>
 
-        <h3>3. Planificateur de Séances</h3>
-        <ul>
-            <li><strong>Assemblage :</strong> Créez des séances d'entraînement complètes en piochant dans votre bibliothèque d'exercices.</li>
-            <li><strong>Exportation :</strong> Exportez vos plans en format PDF pour les emmener avec vous sur le terrain.</li>
-        </ul>
-        
-        <h3>4. Calendrier & Effectif</h3>
-        <ul>
-            <li><strong>Équipes :</strong> Créez vos différentes équipes (U13, U15, Seniors) et ajoutez-y vos joueurs.</li>
-            <li><strong>Planification :</strong> Associez vos plans d'entraînement à des dates précises dans le calendrier.</li>
-            <li><strong>Appel (Présence) :</strong> Faites l'appel à chaque séance pour suivre l'assiduité individuelle de vos joueurs tout au long de la saison.</li>
-        </ul>
+        <details>
+            <summary>2. Playbook (Dessin de Systèmes)</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Terrain & Joueurs :</strong> Ajoutez des joueurs (Attaque/Défense) et des plots. Déplacez-les librement.</li>
+                    <li><strong>Dessin & Lignes :</strong> Utilisez l'outil Pinceau pour dessiner à main levée, ou créez des flèches rectilignes, courbées et des tracés de dribble via la barre d'outils.</li>
+                    <li><strong>Animation Automatique :</strong> Le ballon peut être assigné à un joueur. Si vous déplacez le joueur avec le ballon, ce dernier le suit.</li>
+                    <li><strong>Paramètres Terrain :</strong> Changez le type de terrain (Entier, Demi, FIBA, NBA) et sa couleur d'accentuation en utilisant la barre de droite.</li>
+                    <li><strong>Sauvegarde :</strong> Cliquez sur "Sauvegarder", choisissez vos Tags pour l'organiser, et enregistrez le système dans la Bibliothèque (ou un dossier spécifique).</li>
+                </ul>
+            </div>
+        </details>
 
-        <h3>5. Synchronisation Cloud (Google Drive)</h3>
-        <ul>
-            <li><strong>Multi-appareils :</strong> Retrouvez vos schémas instantanément sur votre PC, tablette et téléphone.</li>
-            <li><strong>Auto-sauvegarde :</strong> Connectez votre compte Google Drive depuis l'accueil. Vos modifications (nouveaux schémas, joueurs, etc.) seront automatiquement envoyées dans un dossier sécurisé et invisible sur votre Cloud.</li>
-            <li><strong>Restauration :</strong> Sur un nouvel appareil, connectez-vous à Drive et cliquez sur "↓ Restaurer" pour télécharger et récupérer toutes vos données.</li>
-        </ul>
+        <details>
+            <summary>3. Bibliothèque (Vos Systèmes)</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Organisation :</strong> Retrouvez tous vos systèmes sauvegardés sous forme de cartes.</li>
+                    <li><strong>Dossiers :</strong> Créez des dossiers via le bouton "+" en haut et glissez-y vos systèmes pour les trier par catégorie.</li>
+                    <li><strong>Tags :</strong> Utilisez le bouton "Gérer les Tags" pour créer une liste globale de tags (ex: <em>Pick&Roll</em>, <em>Système Cornes</em>). Ensuite, assignez ces tags à vos systèmes et filtrez votre bibliothèque en cliquant sur les tags en haut de page.</li>
+                    <li><strong>Actions :</strong> Vous pouvez éditer, dupliquer, télécharger en image (.png) ou supprimer vos schémas.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details>
+            <summary>4. Création de Séances d'Entraînement</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Assemblage :</strong> Dans cette page, vous construisez des plans d'entraînement complets.</li>
+                    <li><strong>Ajout de Blocs :</strong> Cliquez sur "+" pour ajouter un nouvel exercice. Vous pouvez lui donner un nom, une durée et surtout y associer un ou plusieurs dessins depuis votre Bibliothèque.</li>
+                    <li><strong>Organisation :</strong> Réorganisez vos blocs avec les flèches Haut/Bas.</li>
+                    <li><strong>Exportation PDF :</strong> Une fois la séance finalisée, vous pouvez générer un fichier PDF propre (pour l'imprimer ou l'envoyer sur WhatsApp).</li>
+                    <li><strong>Sauvegarde & Dossiers :</strong> Les séances complètes peuvent également être enregistrées dans des dossiers dédiés pour les retrouver plus tard.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details>
+            <summary>5. Effectif & Joueurs</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Création d'Équipe :</strong> Créez vos différentes catégories (ex: U15 F, Seniors M).</li>
+                    <li><strong>Modale Globale :</strong> Cliquez sur le bouton "Modifier" d'une équipe pour : 
+                        <ul>
+                            <li>Renommer l'équipe.</li>
+                            <li>Lui assigner une de vos couleurs (Noir, Or, Rouge, Jaune ou libre).</li>
+                            <li>Ajouter, supprimer ou modifier tous ses joueurs.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Cartes Joueurs :</strong> Les joueurs d'une équipe affichent un résumé de leur taux de présence global, aux entraînements et aux matchs.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details>
+            <summary>6. Calendrier (Suivi & Présences)</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Ajout d'Événements :</strong> Cliquez sur une date pour y ajouter un entraînement ou un match.</li>
+                    <li><strong>Liaison Équipes & Séances :</strong> Vous pouvez lier un ou plusieurs effectifs à l'événement, et y attacher un plan d'entraînement sauvegardé.</li>
+                    <li><strong>Faire l'Appel :</strong> Dans le détail de l'événement, vous voyez la liste des joueurs des équipes liées. Vous pouvez noter leur présence (Présent, Absent, ou Blessé). L'option "Blessé" ne pénalise pas le taux de présence global du joueur.</li>
+                    <li><strong>Scores de Match :</strong> S'il s'agit d'un match, vous pouvez entrer votre score et celui de l'adversaire.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details>
+            <summary>7. Archives & Tri</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Archivage d'Équipe :</strong> Dans la section Effectif, vous pouvez "Archiver" une équipe (par exemple à la fin d'une saison) pour la cacher du menu principal sans perdre ses données.</li>
+                    <li><strong>Gestion des Tags d'Archives :</strong> Cliquez sur "Gérer les Tags" pour créer des dossiers logiques (ex: <em>Saison 2023</em>).</li>
+                    <li><strong>Assignation :</strong> Cliquez sur une équipe archivée pour consulter son effectif, puis cliquez sur "Assigner des Tags" pour l'associer à l'un de vos filtres.</li>
+                    <li><strong>Désarchivage :</strong> Vous pouvez restaurer l'équipe à tout moment pour qu'elle réapparaisse dans l'Effectif actif.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details>
+            <summary>8. Générateur de Fiches & PDF Studio</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Studio PDF :</strong> Vous permet de créer rapidement des "Fiches Exercices" au format PDF, comprenant un nom, un dessin, un but, et des consignes.</li>
+                    <li><strong>Organisation :</strong> Comme pour les Playbooks et les Séances, les fiches peuvent être organisées dans des dossiers propres à ce module.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details>
+            <summary>9. Paramètres & Personnalisation</summary>
+            <div class="details-content">
+                <ul>
+                    <li><strong>Thème de l'Application :</strong> Basculez entre le thème Sombre (par défaut) et le thème Clair pour une meilleure visibilité en extérieur.</li>
+                    <li><strong>Identité Visuelle :</strong> Basculez entre le mode "ORB" (Noir et Or) et le mode "CRAB" (Bordeaux et Jaune). Cette option modifie les couleurs de toute l'interface ainsi que les tracés par défaut de votre terrain.</li>
+                </ul>
+            </div>
+        </details>
         
-        <div class="warning-box">
-            <h4 style="margin-top: 0; color: #F9AB00;">Sécurité de vos données (Hors-ligne & Cloud)</h4>
-            <p style="margin-bottom: 0;">L'application ORB est conçue pour fonctionner <strong>nativement hors-ligne</strong> (les données sont sur votre appareil pour une rapidité maximale et une utilisation sans internet). Pour ne jamais perdre vos données si vous changez d'appareil ou videz votre historique, <strong>connectez votre Google Drive</strong> sur l'écran d'accueil pour activer la sauvegarde automatique dans le Cloud. Vous pouvez également toujours utiliser les boutons "Exporter/Importer" pour créer un fichier de Backup manuel (.json).</p>
-        </div>
+        <details>
+            <summary>10. Synchronisation Cloud (Sécurité)</summary>
+            <div class="details-content">
+                <ul>
+                    <li>L'application ORB est conçue pour être la plus rapide possible en fonctionnant <strong>nativement hors-ligne</strong> (les données sont stockées sur votre appareil).</li>
+                    <li>Pour protéger vos données ou les partager entre votre téléphone, tablette et PC, connectez votre <strong>Google Drive</strong> (depuis l'Accueil ou les Paramètres).</li>
+                    <li>La sauvegarde est automatique en tâche de fond. Si vous changez d'appareil, connectez votre Drive et cliquez sur "↓ Charger" pour tout récupérer.</li>
+                </ul>
+            </div>
+        </details>
+
     </main>
 
     <script>

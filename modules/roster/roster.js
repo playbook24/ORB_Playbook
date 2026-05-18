@@ -17,28 +17,36 @@ const RosterModule = {
         this.inputLastName = document.getElementById('roster-lastname');
         this.inputFirstName = document.getElementById('roster-firstname');
         this.inputLicense = document.getElementById('roster-license');
+        this.inputJersey = document.getElementById('roster-jersey');
+        
+        this.editModal = document.getElementById('edit-team-modal');
+        this.editTeamName = document.getElementById('edit-team-name');
+        this.editTeamColors = document.getElementById('edit-team-colors');
+        this.editTeamPlayersList = document.getElementById('edit-team-players-list');
     },
 
     bindEvents() {
         this.teamSelect.addEventListener('change', (e) => {
             this.currentTeamId = parseInt(e.target.value, 10);
-            this.loadRoster();
+            this.loadTeams();
         });
 
         document.getElementById('btn-add-player').onclick = () => this.addPlayer();
         document.getElementById('btn-create-team').onclick = () => this.createTeam();
         
-        // NOUVEAUX BOUTONS
         document.getElementById('btn-edit-team').onclick = () => this.editTeam();
         document.getElementById('btn-archive-team').onclick = () => this.archiveTeam();
         document.getElementById('btn-delete-team').onclick = () => this.deleteTeam();
+
+        document.getElementById('close-edit-team-modal').onclick = () => this.editModal.classList.add('hidden');
+        document.getElementById('save-edit-team-modal').onclick = () => this.saveEditTeam();
     },
 
     async createTeam() {
         const name = prompt("Nom de la nouvelle équipe (ex: U15 Filles) :");
         if (name && name.trim() !== '') {
             try {
-                const newId = await orbDB.saveTeam({ name: name.trim() });
+                const newId = await orbDB.saveTeam({ name: name.trim(), color: '#BFA98D' });
                 this.currentTeamId = newId;
                 await this.loadTeams();
             } catch (error) {
@@ -48,23 +56,103 @@ const RosterModule = {
         }
     },
 
-    // NOUVELLE FONCTION : Modifier l'équipe
+    // MODALE : Modifier l'équipe et ses joueurs
     async editTeam() {
         if (!this.currentTeamId) return alert("Aucune équipe sélectionnée.");
         const teams = await orbDB.getAllTeams();
         const current = teams.find(t => t.id === this.currentTeamId);
         if (!current) return;
         
-        const newName = prompt("Nouveau nom pour l'équipe :", current.name);
-        if (newName && newName.trim() !== '') {
-            try {
-                current.name = newName.trim();
-                await orbDB.saveTeam(current);
-                await this.loadTeams();
-            } catch (error) {
-                alert("Erreur lors de la modification de l'équipe.");
+        this.editTeamName.value = current.name || '';
+        
+        // Palette de couleurs prédéfinies (ORB et CRAB)
+        const colors = ['#BFA98D', '#1a1a1a', '#72243D', '#F9AB00'];
+        this.selectedColor = current.color || '#BFA98D';
+        
+        const renderColors = () => {
+            this.editTeamColors.innerHTML = '';
+            colors.forEach(c => {
+                const div = document.createElement('div');
+                div.style.cssText = `width:30px; height:30px; border-radius:50%; background:${c}; cursor:pointer; border:2px solid ${c === this.selectedColor ? 'var(--color-primary)' : 'transparent'};`;
+                div.onclick = () => { this.selectedColor = c; renderColors(); };
+                this.editTeamColors.appendChild(div);
+            });
+            const inputColor = document.createElement('input');
+            inputColor.type = 'color';
+            inputColor.value = this.selectedColor;
+            inputColor.style.cssText = `width:30px; height:30px; border-radius:50%; padding:0; border:2px solid ${!colors.includes(this.selectedColor) ? 'var(--color-primary)' : 'transparent'}; cursor:pointer; background:transparent;`;
+            inputColor.onchange = (e) => { this.selectedColor = e.target.value; renderColors(); };
+            this.editTeamColors.appendChild(inputColor);
+        };
+        renderColors();
+
+        // Liste des joueurs
+        this.editTeamPlayersList.innerHTML = '';
+        const players = await orbDB.getAllPlayers();
+        this.editTeamPlayersData = players.filter(p => p.teamId === this.currentTeamId).map(p => ({...p})); // clone
+        
+        this.renderEditPlayers();
+        this.editModal.classList.remove('hidden');
+    },
+
+    renderEditPlayers() {
+        this.editTeamPlayersList.innerHTML = '';
+        this.editTeamPlayersData.forEach((p, index) => {
+            if (p._deleted) return; 
+            
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:10px; align-items:center; background:rgba(255,255,255,0.05); padding:10px; border-radius:6px;';
+            row.innerHTML = `
+                <div style="display:flex; flex-wrap:wrap; gap:10px; flex:1;">
+                    <input type="text" placeholder="Nom" value="${p.lastName}" onchange="RosterModule.updateEditPlayer(${index}, 'lastName', this.value)" style="flex:1 1 45%; padding:8px; border:1px solid var(--color-border); border-radius:4px; background:var(--color-background); color:var(--color-text);">
+                    <input type="text" placeholder="Prénom" value="${p.firstName}" onchange="RosterModule.updateEditPlayer(${index}, 'firstName', this.value)" style="flex:1 1 45%; padding:8px; border:1px solid var(--color-border); border-radius:4px; background:var(--color-background); color:var(--color-text);">
+                    <input type="text" placeholder="N° Licence" value="${p.license || ''}" onchange="RosterModule.updateEditPlayer(${index}, 'license', this.value)" style="flex:1 1 45%; padding:8px; border:1px solid var(--color-border); border-radius:4px; background:var(--color-background); color:var(--color-text);">
+                    <input type="number" placeholder="Maillot" value="${p.jersey || ''}" onchange="RosterModule.updateEditPlayer(${index}, 'jersey', this.value)" style="flex:1 1 45%; padding:8px; border:1px solid var(--color-border); border-radius:4px; background:var(--color-background); color:var(--color-text);">
+                </div>
+                <button title="Retirer ce joueur" onclick="RosterModule.markPlayerDeleted(${index})" class="danger" style="padding:8px; border-radius:4px;">X</button>
+            `;
+            this.editTeamPlayersList.appendChild(row);
+        });
+    },
+
+    updateEditPlayer(index, field, value) {
+        if (this.editTeamPlayersData[index]) {
+            this.editTeamPlayersData[index][field] = value;
+        }
+    },
+
+    markPlayerDeleted(index) {
+        if (this.editTeamPlayersData[index]) {
+            if (confirm("Confirmer la suppression de ce joueur ?")) {
+                this.editTeamPlayersData[index]._deleted = true;
+                this.renderEditPlayers();
             }
         }
+    },
+
+    async saveEditTeam() {
+        const teams = await orbDB.getAllTeams();
+        const current = teams.find(t => t.id === this.currentTeamId);
+        if (!current) return;
+
+        current.name = this.editTeamName.value.trim() || current.name;
+        current.color = this.selectedColor;
+        await orbDB.saveTeam(current);
+
+        for (let p of this.editTeamPlayersData) {
+            if (p._deleted) {
+                await orbDB.deletePlayer(p.id);
+            } else {
+                p.lastName = p.lastName.trim();
+                p.firstName = p.firstName.trim();
+                if (p.license !== undefined) p.license = p.license.trim();
+                if (p.jersey !== undefined) p.jersey = p.jersey.trim();
+                await orbDB.savePlayer(p);
+            }
+        }
+
+        this.editModal.classList.add('hidden');
+        await this.loadTeams();
     },
 
     // NOUVELLE FONCTION : Archiver l'équipe
@@ -92,6 +180,7 @@ const RosterModule = {
         if (confirm("Supprimer DÉFINITIVEMENT cette équipe ? (Ses joueurs ne seront plus affichés)")) {
             await orbDB.deleteTeam(this.currentTeamId);
             this.currentTeamId = null; // Réinitialise pour charger la suivante
+            if (this.editModal) this.editModal.classList.add('hidden');
             await this.loadTeams();
         }
     },
@@ -112,6 +201,7 @@ const RosterModule = {
             if (!this.currentTeamId || !teams.find(t => t.id === this.currentTeamId)) {
                 this.currentTeamId = teams[0].id;
             }
+            const current = teams.find(t => t.id === this.currentTeamId);
             teams.forEach(t => {
                 const opt = document.createElement('option');
                 opt.value = t.id;
@@ -174,7 +264,7 @@ const RosterModule = {
             card.innerHTML = `
                 <div class="player-info" style="flex-grow: 1; min-width: 150px;">
                     <div class="player-name" style="font-weight: bold; font-size: 1.1em; color: var(--color-text);">${p.lastName.toUpperCase()} ${p.firstName}</div>
-                    <div class="player-license" style="font-size: 0.9em; opacity: 0.7; margin-top: 5px;">Licence : ${p.license || '-'}</div>
+                    <div class="player-license" style="font-size: 0.9em; opacity: 0.7; margin-top: 5px;">Licence : ${p.license || '-'} | N°: ${p.jersey || '-'}</div>
                 </div>
                 
                 <div style="display:flex; gap: 15px; flex-wrap: wrap; text-align: center;">
@@ -191,10 +281,7 @@ const RosterModule = {
                         <div>${formatAtt(globalAtt)}</div>
                     </div>
                 </div>
-                
-                <button title="Supprimer ce joueur" style="background: transparent; border: none; cursor: pointer; color: var(--color-primary); padding: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="RosterModule.deletePlayer(${p.id})">
-                    <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: currentColor;"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2 2 0 0,0 8,21H16A2 2 0 0,0 18,19V7H6V19Z"/></svg>
-                </button>
+                <div style="display:none;"></div>
             `;
             this.listContainer.appendChild(card);
         });
@@ -208,6 +295,7 @@ const RosterModule = {
         await orbDB.savePlayer({
             lastName, firstName, 
             license: this.inputLicense.value,
+            jersey: this.inputJersey.value,
             teamId: this.currentTeamId,
             createdAt: new Date()
         });
@@ -215,8 +303,11 @@ const RosterModule = {
         this.inputLastName.value = '';
         this.inputFirstName.value = '';
         this.inputLicense.value = '';
+        this.inputJersey.value = '';
         this.loadRoster();
     },
+
+
 
     async deletePlayer(id) {
         if(confirm("Supprimer définitivement ce joueur ?")) {

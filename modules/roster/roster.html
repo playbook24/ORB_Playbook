@@ -24,8 +24,7 @@
                 <h3 style="margin: 0; border: none; padding: 0;">Équipe active</h3>
                 <div style="display: flex; gap: 10px;">
                     <button id="btn-edit-team" class="btn-primary" style="background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary); padding: 8px 15px;">Modifier</button>
-                    <button id="btn-archive-team" class="btn-primary" style="background: transparent; border: 1px solid #F9AB00; color: #F9AB00; padding: 8px 15px;">Archiver</button>
-                    <button id="btn-delete-team" class="danger" style="padding: 8px 15px; border-radius: 6px;">Supprimer</button>
+                    <button id="btn-archive-team" class="btn-primary" style="padding: 8px 15px;">Archiver</button>
                     <button id="btn-create-team" class="btn-primary" style="padding: 8px 15px;">Nouvelle équipe</button>
                 </div>
             </div>
@@ -35,14 +34,49 @@
         <div class="section-container">
             <h3 style="margin-top: 0;">Ajouter un Joueur</h3>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <input type="text" id="roster-lastname" placeholder="Nom" style="flex: 1; min-width: 200px;">
-                <input type="text" id="roster-firstname" placeholder="Prénom" style="flex: 1; min-width: 200px;">
-                <input type="text" id="roster-license" placeholder="N° Licence / Maillot" style="flex: 1; min-width: 150px;">
+                <input type="text" id="roster-lastname" placeholder="Nom" style="flex: 1; min-width: 150px;">
+                <input type="text" id="roster-firstname" placeholder="Prénom" style="flex: 1; min-width: 150px;">
+                <input type="text" id="roster-license" placeholder="N° Licence" style="flex: 1; min-width: 120px;">
+                <input type="number" id="roster-jersey" placeholder="N° Maillot" style="width: 100px;">
                 <button id="btn-add-player" class="btn-primary" style="padding: 10px 30px;">Ajouter</button>
             </div>
         </div>
         
         <div id="roster-list" class="roster-grid"></div>
+
+        <div id="edit-team-modal" class="modal-overlay hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9000; display:flex; align-items:center; justify-content:center;">
+            <div style="background:var(--color-container); padding:25px; border-radius:12px; width:600px; max-height:85vh; overflow-y:auto; border:1px solid var(--color-border); text-align: left;">
+                <h3 style="margin-top:0; color:var(--color-primary);">Modifier l'Équipe & Joueurs</h3>
+                
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:8px; color:var(--color-text);">Nom de l'équipe :</label>
+                    <input type="text" id="edit-team-name" style="width:100%; padding:10px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-background); color:var(--color-text);">
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:8px; color:var(--color-text);">Couleur de l'équipe :</label>
+                    <div id="edit-team-colors" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <!-- Les couleurs seront générées par JS -->
+                    </div>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:8px; color:var(--color-text);">Joueurs :</label>
+                    <div id="edit-team-players-list" style="display:flex; flex-direction:column; gap:10px;">
+                        <!-- La liste des joueurs modifiables -->
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px;">
+                    <div style="display:flex; gap:10px;">
+                        <button id="close-edit-team-modal" class="btn-icon" style="color:var(--color-text); padding:10px;">Annuler</button>
+                        <button id="btn-delete-team" class="danger" style="padding:10px;">Supprimer l'équipe</button>
+                    </div>
+                    <button id="save-edit-team-modal" class="btn-primary" style="padding:10px 20px;">Enregistrer les modifications</button>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <script src="../../core/db.js"></script>

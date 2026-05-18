@@ -166,6 +166,7 @@ const CalendarModule = {
         }
 
         const events = await orbDB.getAllCalendarEvents();
+        const teams = await orbDB.getAllTeams();
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -181,6 +182,21 @@ const CalendarModule = {
                 chip.style.display = 'flex';
                 chip.style.justifyContent = 'space-between';
                 chip.style.alignItems = 'center';
+
+                let teamColor = '';
+                if (e.teamId) {
+                    const t = teams.find(t => t.id === e.teamId);
+                    if (t && t.color) teamColor = t.color;
+                } else if (e.teamIds && e.teamIds.length > 0) {
+                    const t = teams.find(t => t.id === e.teamIds[0]);
+                    if (t && t.color) teamColor = t.color;
+                }
+
+                if (teamColor) {
+                    chip.style.backgroundColor = teamColor;
+                    chip.style.color = '#fff';
+                    chip.style.border = '1px solid rgba(0,0,0,0.2)';
+                }
                 
                 const hasPlan = !!(e.planSnapshot);
                 const hasAttendance = e.attendance && Object.keys(e.attendance).length > 0;
@@ -188,11 +204,11 @@ const CalendarModule = {
                 const isMatch = e.type === 'match';
                 let iconsHtml = '';
                 if (isMatch) {
-                    iconsHtml += `<svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:#000000; flex-shrink:0;" title="Match"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12C20,13.75 19.43,15.38 18.45,16.7L16.5,14.77C16.82,13.92 17,13 17,12A5,5 0 0,0 12,7C11,7 10.08,7.18 9.23,7.5L7.3,5.55C8.62,4.57 10.25,4 12,4M5.55,7.3L7.5,9.23C7.18,10.08 7,11 7,12A5,5 0 0,0 12,17C13,17 13.92,16.82 14.77,16.5L16.7,18.45C15.38,19.43 13.75,20 12,20A8,8 0 0,1 4,12C4,10.25 4.57,8.62 5.55,7.3Z"/></svg>`;
+                    iconsHtml += `<svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:currentColor; flex-shrink:0;" title="Match"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12C20,13.75 19.43,15.38 18.45,16.7L16.5,14.77C16.82,13.92 17,13 17,12A5,5 0 0,0 12,7C11,7 10.08,7.18 9.23,7.5L7.3,5.55C8.62,4.57 10.25,4 12,4M5.55,7.3L7.5,9.23C7.18,10.08 7,11 7,12A5,5 0 0,0 12,17C13,17 13.92,16.82 14.77,16.5L16.7,18.45C15.38,19.43 13.75,20 12,20A8,8 0 0,1 4,12C4,10.25 4.57,8.62 5.55,7.3Z"/></svg>`;
                 } else {
-                    if (hasPlan) iconsHtml += `<svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:#000000; flex-shrink:0;" title="Entraînement lié"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13,9V3.5L18.5,9H13Z"/></svg>`;
+                    if (hasPlan) iconsHtml += `<svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:currentColor; flex-shrink:0;" title="Entraînement lié"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13,9V3.5L18.5,9H13Z"/></svg>`;
                 }
-                if (hasAttendance) iconsHtml += `<svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:#000000; flex-shrink:0;" title="Appel effectué"><path d="M21.1,12.5L22.5,13.91L15.97,20.5L12.5,17L13.9,15.59L15.97,17.67L21.1,12.5M10,17L13,20H3V18C3,15.79 6.58,14 10.5,14C10.89,14 11.27,14 11.64,14.07L10.59,15.12C10.56,15.11 10.53,15.11 10.5,15.11C8.25,15.11 5.37,16.05 4.88,17H10M10.5,12C8.57,12 6.69,10.43 6.69,8.5C6.69,6.57 8.57,5 10.5,5C12.43,5 14.31,6.57 14.31,8.5C14.31,10.43 12.43,12 10.5,12M10.5,10.11C11.5,10.11 12.41,9.25 12.41,8.5C12.41,7.75 11.5,6.89 10.5,6.89C9.5,6.89 8.59,7.75 8.59,8.5C8.59,9.25 9.5,10.11 10.5,10.11Z"/></svg>`;
+                if (hasAttendance) iconsHtml += `<svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:currentColor; flex-shrink:0;" title="Appel effectué"><path d="M21.1,12.5L22.5,13.91L15.97,20.5L12.5,17L13.9,15.59L15.97,17.67L21.1,12.5M10,17L13,20H3V18C3,15.79 6.58,14 10.5,14C10.89,14 11.27,14 11.64,14.07L10.59,15.12C10.56,15.11 10.53,15.11 10.5,15.11C8.25,15.11 5.37,16.05 4.88,17H10M10.5,12C8.57,12 6.69,10.43 6.69,8.5C6.69,6.57 8.57,5 10.5,5C12.43,5 14.31,6.57 14.31,8.5C14.31,10.43 12.43,12 10.5,12M10.5,10.11C11.5,10.11 12.41,9.25 12.41,8.5C12.41,7.75 11.5,6.89 10.5,6.89C9.5,6.89 8.59,7.75 8.59,8.5C8.59,9.25 9.5,10.11 10.5,10.11Z"/></svg>`;
 
                 let displayTitle = e.title || 'Séance';
                 if (isMatch && e.score) displayTitle += ` (${e.score})`;

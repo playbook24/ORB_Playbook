@@ -59,12 +59,12 @@
             <span>Archives</span>
         </a>
         <div class="nav-card split-card">
-            <button id="export-backup-btn" class="split-btn" title="Télécharger une sauvegarde">
+            <button id="btn-open-export" class="split-btn" title="Télécharger une sauvegarde partielle ou totale">
                 <svg viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M12,19L8,15H10.5V12H13.5V15H16L12,19M13,9V3.5L18.5,9H13Z"/></svg>
-                <span>Sauvegarder</span>
+                <span>Exporter</span>
             </button>
             <div class="split-divider"></div>
-            <button id="import-backup-btn" class="split-btn" title="Restaurer une sauvegarde">
+            <button id="btn-open-import" class="split-btn" title="Restaurer ou ajouter depuis une sauvegarde">
                 <svg viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M12,12L16,16H13.5V19H10.5V16H8L12,12M13,9V3.5L18.5,9H13Z"/></svg>
                 <span>Restaurer</span>
             </button>
@@ -96,6 +96,32 @@
         
     </main>
 
+    <!-- Modales d'Export et d'Import -->
+    <div id="export-modal" class="modal-overlay hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9000; display:flex; align-items:center; justify-content:center;">
+        <div style="background:var(--color-container); padding:25px; border-radius:12px; width:400px; border:1px solid var(--color-border); text-align: center;">
+            <h3 style="margin-top:0; color:var(--color-primary);">Options d'Exportation</h3>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+                <button id="export-all-btn" class="btn-primary" style="padding:10px;">Tout exporter (Sauvegarde complète)</button>
+                <button id="export-teams-btn" class="btn-primary" style="padding:10px; background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary);">Équipes & Effectif</button>
+                <button id="export-lib-btn" class="btn-primary" style="padding:10px; background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary);">Bibliothèque (Schémas, Fiches)</button>
+                <button id="export-plans-btn" class="btn-primary" style="padding:10px; background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary);">Séances (Planificateur)</button>
+            </div>
+            <button id="close-export-modal" class="btn-icon" style="margin-top:20px; color:var(--color-text); padding:5px 15px;">Fermer</button>
+        </div>
+    </div>
+
+    <div id="import-modal" class="modal-overlay hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9000; display:flex; align-items:center; justify-content:center;">
+        <div style="background:var(--color-container); padding:25px; border-radius:12px; width:450px; border:1px solid var(--color-border); text-align: center;">
+            <h3 style="margin-top:0; color:var(--color-primary);">Mode de Restauration</h3>
+            <p style="color:var(--color-text); opacity:0.8; margin-bottom:20px; font-size: 0.9em;">Que voulez-vous faire avec les données de ce fichier ?</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button id="import-replace-btn" class="danger" style="padding:10px;">Écraser et Remplacer (Efface vos données actuelles)</button>
+                <button id="import-add-btn" class="btn-primary" style="padding:10px;">Ajouter (Fusionne avec vos données actuelles)</button>
+            </div>
+            <button id="close-import-modal" class="btn-icon" style="margin-top:20px; color:var(--color-text); padding:5px 15px;">Annuler</button>
+        </div>
+    </div>
+
     <script src="core/db.js"></script>
     
     <script>
@@ -107,32 +133,40 @@
             if (typeof orbDB !== 'undefined') await orbDB.open();
 
             // ==========================================
-            // EXPORT (BACKUP COMPLET V4 AVEC IMAGES)
+            // EXPORT SÉLECTIF
             // ==========================================
-            document.getElementById('export-backup-btn').addEventListener('click', async () => {
-                const btn = document.getElementById('export-backup-btn');
-                const originalText = btn.innerHTML;
-                btn.innerHTML = "<span>Préparation...</span>";
+            const exportModal = document.getElementById('export-modal');
+            document.getElementById('btn-open-export').addEventListener('click', () => {
+                exportModal.classList.remove('hidden');
+            });
+            document.getElementById('close-export-modal').addEventListener('click', () => {
+                exportModal.classList.add('hidden');
+            });
 
+            const performExport = async (mode, btnId) => {
+                const btn = document.getElementById(btnId);
+                const originalText = btn.innerHTML;
+                btn.innerHTML = "Préparation...";
+                
                 try {
-                    const playbooks = await orbDB.getAllPlaybooks();
-                    
-                    // NOUVEAU : Convertir les images (Blobs) en Base64 pour les inclure dans le JSON
-                    for (let pb of playbooks) {
-                        if (pb.preview instanceof Blob) {
-                            pb.previewBase64 = await new Promise((resolve) => {
-                                const reader = new FileReader();
-                                reader.onloadend = () => resolve(reader.result);
-                                reader.readAsDataURL(pb.preview);
-                            });
+                    let playbooks = [];
+                    if (mode === 'all' || mode === 'lib') {
+                        playbooks = await orbDB.getAllPlaybooks();
+                        for (let pb of playbooks) {
+                            if (pb.preview instanceof Blob) {
+                                pb.previewBase64 = await new Promise((resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve(reader.result);
+                                    reader.readAsDataURL(pb.preview);
+                                });
+                            }
+                            delete pb.preview;
                         }
-                        delete pb.preview; // On retire l'objet Blob natif qui fait planter le JSON
                     }
 
-                    const backupData = {
-                        version: "orb_backup_v4",
-                        createdAt: new Date().toISOString(),
-                        data: {
+                    let data = {};
+                    if (mode === 'all') {
+                        data = {
                             playbooks: playbooks,
                             trainingPlans: await orbDB.getAllPlans(),
                             tags: await orbDB.getAllTags(),
@@ -143,40 +177,89 @@
                             teams: await orbDB.getAllTeams(),
                             sheets: await orbDB.getAllSheets(),
                             sheetTags: await orbDB.getAllSheetTags()
-                        }
+                        };
+                    } else if (mode === 'teams') {
+                        data = {
+                            players: await orbDB.getAllPlayers(),
+                            teams: await orbDB.getAllTeams()
+                        };
+                    } else if (mode === 'lib') {
+                        data = {
+                            playbooks: playbooks,
+                            tags: await orbDB.getAllTags(),
+                            folders: await orbDB.getAllFolders(),
+                            sheets: await orbDB.getAllSheets(),
+                            sheetTags: await orbDB.getAllSheetTags()
+                        };
+                    } else if (mode === 'plans') {
+                        data = {
+                            trainingPlans: await orbDB.getAllPlans(),
+                            planFolders: await orbDB.getAllPlanFolders(),
+                            calendarEvents: await orbDB.getAllCalendarEvents()
+                        };
+                    }
+
+                    const backupData = {
+                        version: "orb_backup_v4",
+                        createdAt: new Date().toISOString(),
+                        exportMode: mode,
+                        data: data
                     };
 
                     const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `ORB_Backup_Complet_${new Date().toISOString().split('T')[0]}.json`;
+                    const suffix = mode === 'all' ? 'Complet' : (mode === 'teams' ? 'Equipes' : (mode === 'lib' ? 'Bibliotheque' : 'Seances'));
+                    a.download = `ORB_Export_${suffix}_${new Date().toISOString().split('T')[0]}.json`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
+                    exportModal.classList.add('hidden');
                 } catch (error) {
                     console.error(error);
-                    alert("Erreur lors de la sauvegarde.");
+                    alert("Erreur lors de l'exportation.");
                 } finally {
                     btn.innerHTML = originalText;
                 }
-            });
+            };
+
+            document.getElementById('export-all-btn').addEventListener('click', () => performExport('all', 'export-all-btn'));
+            document.getElementById('export-teams-btn').addEventListener('click', () => performExport('teams', 'export-teams-btn'));
+            document.getElementById('export-lib-btn').addEventListener('click', () => performExport('lib', 'export-lib-btn'));
+            document.getElementById('export-plans-btn').addEventListener('click', () => performExport('plans', 'export-plans-btn'));
 
             // ==========================================
-            // IMPORT (RESTAURATION AVEC RECRÉATION DES IMAGES)
+            // IMPORT (RESTAURATION OU FUSION)
             // ==========================================
-            document.getElementById('import-backup-btn').addEventListener('click', () => {
-                document.getElementById('import-backup-input').click();
+            const importModal = document.getElementById('import-modal');
+            const fileInput = document.getElementById('import-backup-input');
+            let importMode = null; // 'replace' or 'add'
+
+            document.getElementById('btn-open-import').addEventListener('click', () => {
+                importModal.classList.remove('hidden');
             });
 
-            document.getElementById('import-backup-input').addEventListener('change', (e) => {
+            document.getElementById('close-import-modal').addEventListener('click', () => {
+                importModal.classList.add('hidden');
+            });
+
+            document.getElementById('import-replace-btn').addEventListener('click', () => {
+                importMode = 'replace';
+                fileInput.click();
+                importModal.classList.add('hidden');
+            });
+
+            document.getElementById('import-add-btn').addEventListener('click', () => {
+                importMode = 'add';
+                fileInput.click();
+                importModal.classList.add('hidden');
+            });
+
+            fileInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                
-                if (!confirm("ATTENTION : La restauration d'une sauvegarde va ÉCRASER et REMPLACER toutes vos données actuelles. Voulez-vous vraiment continuer ?")) {
-                    e.target.value = ''; return;
-                }
 
                 const reader = new FileReader();
                 reader.onload = async (event) => {
@@ -207,7 +290,6 @@
                             if (!pb.createdAt) pb.createdAt = new Date().toISOString();
                             if (!pb.name) pb.name = "Playbook Récupéré";
                             
-                            // NOUVEAU : Reconstruire l'image (Blob) à partir de la chaîne Base64 sauvegardée
                             if (pb.previewBase64) {
                                 try {
                                     const byteString = atob(pb.previewBase64.split(',')[1]);
@@ -218,44 +300,53 @@
                                         ia[i] = byteString.charCodeAt(i);
                                     }
                                     pb.preview = new Blob([ab], { type: mimeString });
-                                } catch (err) {
-                                    console.error("Erreur restauration aperçu", err);
-                                }
+                                } catch (err) {}
                                 delete pb.previewBase64;
                             } else {
                                 delete pb.preview; 
                             }
                         });
 
-                        // NOUVEAU : On s'assure que la connexion à la base de données est bien active
                         if (!orbDB.db) await orbDB.open();
 
                         const tx = orbDB.db.transaction(['playbooks', 'trainingPlans', 'tags', 'folders', 'planFolders', 'calendarEvents', 'players', 'teams', 'sheets', 'sheetTags'], 'readwrite');
                         
-                        const clearAndAdd = (storeName, items) => {
+                        const importStore = (storeName, items) => {
                             const store = tx.objectStore(storeName);
-                            store.clear();
-                            if (items && items.length) items.forEach(item => store.add(item));
+                            if (importMode === 'replace') {
+                                const isKeyPresent = parsedData.data && parsedData.data[storeName] !== undefined;
+                                if (isKeyPresent || Array.isArray(parsedData)) {
+                                    store.clear();
+                                }
+                            }
+                            if (items && items.length) {
+                                items.forEach(item => {
+                                    if (importMode === 'add') {
+                                        delete item.id; 
+                                    }
+                                    store.add(item);
+                                });
+                            }
                         };
 
-                        clearAndAdd('playbooks', dataToImport.playbooks);
-                        clearAndAdd('trainingPlans', dataToImport.trainingPlans);
-                        clearAndAdd('tags', dataToImport.tags);
-                        clearAndAdd('folders', dataToImport.folders);
-                        clearAndAdd('planFolders', dataToImport.planFolders);
-                        clearAndAdd('calendarEvents', dataToImport.calendarEvents);
-                        clearAndAdd('players', dataToImport.players);
-                        clearAndAdd('teams', dataToImport.teams);
-                        clearAndAdd('sheets', dataToImport.sheets);
-                        clearAndAdd('sheetTags', dataToImport.sheetTags);
+                        importStore('playbooks', dataToImport.playbooks);
+                        importStore('trainingPlans', dataToImport.trainingPlans);
+                        importStore('tags', dataToImport.tags);
+                        importStore('folders', dataToImport.folders);
+                        importStore('planFolders', dataToImport.planFolders);
+                        importStore('calendarEvents', dataToImport.calendarEvents);
+                        importStore('players', dataToImport.players);
+                        importStore('teams', dataToImport.teams);
+                        importStore('sheets', dataToImport.sheets);
+                        importStore('sheetTags', dataToImport.sheetTags);
 
                         tx.oncomplete = () => {
-                            alert("Restauration réussie avec tous les aperçus !");
+                            alert("Opération réussie !");
                             window.location.reload(); 
                         };
                     } catch (err) {
                         console.error(err);
-                        alert("Erreur : Le fichier de backup n'est pas valide ou est corrompu.");
+                        alert("Erreur : Le fichier n'est pas valide ou est corrompu.");
                     }
                     e.target.value = ''; 
                 };

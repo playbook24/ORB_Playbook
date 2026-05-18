@@ -12,7 +12,7 @@ class ORBDatabase {
     async open() {
         return new Promise((resolve, reject) => {
             if (this.db) { resolve(this.db); return; }
-            const request = indexedDB.open(this.dbName, 11); 
+            const request = indexedDB.open(this.dbName, 12); 
             request.onerror = (e) => { console.error("Erreur d'ouverture BDD", e); reject("Erreur BDD"); };
             request.onsuccess = (e) => { this.db = e.target.result; resolve(this.db); };
             request.onupgradeneeded = (e) => {
@@ -28,6 +28,7 @@ class ORBDatabase {
                 if (!db.objectStoreNames.contains('folders')) db.createObjectStore('folders', { keyPath: 'id', autoIncrement: true });
                 if (!db.objectStoreNames.contains('planFolders')) db.createObjectStore('planFolders', { keyPath: 'id', autoIncrement: true });
                 if (!db.objectStoreNames.contains('sheetFolders')) db.createObjectStore('sheetFolders', { keyPath: 'id', autoIncrement: true });
+                if (!db.objectStoreNames.contains('archiveTags')) db.createObjectStore('archiveTags', { keyPath: 'id', autoIncrement: true });
             };
         });
     }
@@ -54,6 +55,18 @@ class ORBDatabase {
     async getAllFolders() { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['folders'], 'readonly').objectStore('folders').getAll().onsuccess = e => res(e.target.result); }); }
     async addFolder(name) { if (!this.db) await this.open(); return new Promise((res, rej) => { const req = this.db.transaction(['folders'], 'readwrite').objectStore('folders').add({name}); req.onsuccess = e => { this._triggerSync(); res(e.target.result); }; req.onerror = e => rej(e);}); }
     async deleteFolder(id) { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['folders'], 'readwrite').objectStore('folders').delete(id).onsuccess = () => { this._triggerSync(); res(true); }; }); }
+
+    // --- ARCHIVE TAGS ---
+    async getAllArchiveTags() { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['archiveTags'], 'readonly').objectStore('archiveTags').getAll().onsuccess = e => res(e.target.result); }); }
+    async saveArchiveTag(tag) { 
+        if (!this.db) await this.open(); 
+        return new Promise((res, rej) => { 
+            const req = this.db.transaction(['archiveTags'], 'readwrite').objectStore('archiveTags').put(tag); 
+            req.onsuccess = e => { this._triggerSync(); res(e.target.result); }; 
+            req.onerror = e => rej(e);
+        }); 
+    }
+    async deleteArchiveTag(id) { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['archiveTags'], 'readwrite').objectStore('archiveTags').delete(id).onsuccess = () => { this._triggerSync(); res(true); }; }); }
 
     // --- PLAYBOOKS ---
     async savePlaybook(data, preview, id = null) { 

@@ -19,8 +19,14 @@
     </header>
 
     <main id="main-view" style="max-width: 1000px; margin: 40px auto; padding: 0 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; color: var(--color-primary); font-family: 'Anton';">Équipes Archivées</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <h2 style="margin: 0; color: var(--color-primary); font-family: 'Anton';">Équipes Archivées</h2>
+                <button id="btn-manage-archive-tags" class="btn-primary" style="padding: 6px 12px; font-size: 0.9em; border: 1px solid var(--color-primary); background: transparent; color: var(--color-primary);">Gérer les Tags</button>
+            </div>
+            <div id="archive-filter-container" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <!-- Filtres -->
+            </div>
         </div>
         <div id="archive-list" class="archive-grid"></div>
     </main>
@@ -33,10 +39,44 @@
                 </button>
                 <h2 id="detail-title" style="margin: 0; color: var(--color-primary); font-family: 'Anton';">Nom de l'équipe</h2>
             </div>
-            <button id="btn-unarchive-team" class="btn-primary" style="background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary); padding: 8px 15px;">Désarchiver l'équipe</button>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <button id="btn-assign-tags" class="btn-primary" style="background: transparent; border: 1px solid var(--color-border); color: var(--color-text); padding: 8px 15px;">Assigner des Tags</button>
+                <button id="btn-unarchive-team" class="btn-primary" style="background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary); padding: 8px 15px;">Désarchiver l'équipe</button>
+            </div>
         </div>
         <div id="roster-list" class="roster-grid"></div>
     </main>
+
+    <!-- Modale Gérer les Tags d'Archives -->
+    <div id="archive-tags-modal" class="modal-overlay hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 3000; display: flex; justify-content: center; align-items: center;">
+        <div style="background: var(--color-container); border-radius: 12px; width: 450px; max-width: 90vw; padding: 25px; box-shadow: var(--shadow-lifted); border: 1px solid var(--color-border);">
+            <h2 style="margin-top: 0; color: var(--color-primary); font-family: var(--font-title);">Gérer les Tags d'Archives</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="new-archive-tag-input" placeholder="Nouveau tag..." style="flex-grow: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text);">
+                <button id="btn-add-archive-tag" class="btn-primary">Ajouter</button>
+            </div>
+            <div id="archive-tags-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
+                <!-- Liste des tags -->
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button id="btn-close-archive-tags-modal" style="padding: 10px 20px; border-radius: 8px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text); cursor: pointer;">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Assigner Tags à l'équipe -->
+    <div id="assign-tags-modal" class="modal-overlay hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 3000; display: flex; justify-content: center; align-items: center;">
+        <div style="background: var(--color-container); border-radius: 12px; width: 400px; max-width: 90vw; padding: 25px; box-shadow: var(--shadow-lifted); border: 1px solid var(--color-border);">
+            <h2 style="margin-top: 0; color: var(--color-primary); font-family: var(--font-title);">Assigner des Tags</h2>
+            <div id="assign-tags-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+                <!-- Checkboxes -->
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="btn-close-assign-tags" style="padding: 10px 20px; border-radius: 8px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text); cursor: pointer;">Annuler</button>
+                <button id="btn-save-assign-tags" class="btn-primary">Enregistrer</button>
+            </div>
+        </div>
+    </div>
 
     <script src="../../core/db.js"></script>
     <script src="archive.js"></script>
