@@ -8,8 +8,10 @@ const PlannerModule = {
     allTags: [], 
     allFolders: [],
     allPlanFolders: [], // NOUVEAU: Dossiers pour les séances
+    allPlanTags: [],    // NOUVEAU: Tags pour les séances
     allPlans: [],       // NOUVEAU: Stocker les séances chargées
 
+    activePlanTagId: null, // Filtre actif
     plannerViewMode: sessionStorage.getItem('plannerViewMode') || 'FOLDERS',
     currentPlanFolderId: sessionStorage.getItem('plannerFolderId') && sessionStorage.getItem('plannerFolderId') !== 'ALL' ? parseInt(sessionStorage.getItem('plannerFolderId')) : (sessionStorage.getItem('plannerFolderId') || null),
     currentPlanToAssign: null,
@@ -43,11 +45,13 @@ const PlannerModule = {
         this.filterContainer = document.getElementById('plan-selector-filters');
         this.searchInput = document.getElementById('plan-selector-search');
 
-        // NOUVEAU: UI Planificateur principal
         this.plannerTitleText = document.getElementById('planner-title-text');
         this.btnBackPlanFolders = document.getElementById('btn-back-plan-folders');
         this.btnCreatePlanFolder = document.getElementById('btn-create-plan-folder');
         this.assignPlanModal = document.getElementById('assign-plan-modal');
+        this.plannerFilters = document.getElementById('planner-filters');
+        
+        this.managePlanTagsModal = document.getElementById('manage-plan-tags-modal');
     },
 
     bindEvents() {
@@ -93,11 +97,37 @@ const PlannerModule = {
 
         document.getElementById('assign-plan-close-btn').onclick = () => this.assignPlanModal.classList.add('hidden');
         document.getElementById('btn-save-plan-assignment').onclick = () => this.savePlanAssignment();
+
+        document.getElementById('btn-reorder-plans').onclick = () => {
+            if (this.plannerViewMode === 'FOLDERS') {
+                if (this.allPlanFolders.length === 0) return alert("Aucun dossier à réorganiser.");
+                ORBReorder.open("Ordre des Dossiers", "planFolders", this.allPlanFolders, () => this.loadGrid());
+            } else {
+                let fIdSort = (typeof this.currentPlanFolderId === 'number') ? this.currentPlanFolderId : 'root';
+                if (this.currentPlanFolderId === 'ALL') fIdSort = 'all';
+                let items = this.allPlans.filter(p => {
+                    if (this.currentPlanFolderId === 'ALL') return true;
+                    if (fIdSort === 'root') return !p.folderIds || p.folderIds.length === 0;
+                    return p.folderIds && p.folderIds.includes(fIdSort);
+                });
+                if (items.length === 0) return alert("Aucune séance à réorganiser ici.");
+                ORBReorder.open("Ordre des Séances", `plans_${fIdSort}`, items, () => this.loadGrid());
+            }
+        };
+
+        // Modal Tags
+        document.getElementById('btn-manage-plan-tags').onclick = () => this.openManagePlanTagsModal();
+        document.getElementById('manage-plan-tags-close-btn').onclick = () => this.managePlanTagsModal.classList.add('hidden');
+        document.getElementById('btn-add-new-plan-tag').onclick = () => this.addPlanTag();
     },
 
     async loadGrid() {
-        this.allPlans = await orbDB.getAllPlans();
-        this.allPlanFolders = await orbDB.getAllPlanFolders();
+        const [plans, pFolders, pTags] = await Promise.all([
+            orbDB.getAllPlans(), orbDB.getAllPlanFolders(), orbDB.getAllPlanTags()
+        ]);
+        this.allPlans = plans || [];
+        this.allPlanFolders = ORBReorder.sort(pFolders || [], 'planFolders');
+        this.allPlanTags = ORBReorder.sort(pTags || [], 'planTags');
         
         sessionStorage.setItem('plannerViewMode', this.plannerViewMode);
         if (this.currentPlanFolderId !== null) sessionStorage.setItem('plannerFolderId', this.currentPlanFolderId);
@@ -114,6 +144,7 @@ const PlannerModule = {
         this.plannerTitleText.textContent = "Vos Dossiers de Séances";
         this.btnBackPlanFolders.style.display = 'none';
         this.btnCreatePlanFolder.style.display = 'inline-block';
+        this.plannerFilters.innerHTML = '';
         this.grid.innerHTML = '';
 
         // Dossier "TOUTES LES SÉANCES"
@@ -169,6 +200,16 @@ const PlannerModule = {
         if (this.currentPlanFolderId !== 'ALL') {
             filteredPlans = filteredPlans.filter(p => p.folderIds && p.folderIds.includes(this.currentPlanFolderId));
         }
+        
+        if (this.activePlanTagId !== null) {
+            filteredPlans = filteredPlans.filter(p => p.tagIds && p.tagIds.includes(this.activePlanTagId));
+        }
+        
+        let fIdSort = (typeof this.currentPlanFolderId === 'number') ? this.currentPlanFolderId : 'root';
+        if (this.currentPlanFolderId === 'ALL') fIdSort = 'all';
+        filteredPlans = ORBReorder.sort(filteredPlans, `plans_${fIdSort}`);
+
+        this.renderPlanFilters(fIdSort);
 
         this.grid.innerHTML = `
             <div class="card-new-plan" id="btn-new-plan">
@@ -176,7 +217,7 @@ const PlannerModule = {
                 Créer une Séance
             </div>`;
         
-        filteredPlans.reverse().forEach(plan => {
+        filteredPlans.forEach(plan => {
             const card = document.createElement('div');
             card.className = 'plan-card';
             card.innerHTML = `
@@ -209,33 +250,153 @@ const PlannerModule = {
         document.getElementById('assign-plan-title').textContent = `Classer : ${plan.name}`;
         
         const planFolderIds = new Set(plan.folderIds || []);
-        const list = document.getElementById('assign-plan-folders-list');
-        list.innerHTML = '';
-
-        if (this.allPlanFolders.length === 0) {
-            list.innerHTML = '<p style="font-size:0.9em; opacity:0.7;">Aucun dossier créé.</p>';
-        } else {
+        const planTagIds = new Set(plan.tagIds || []);
+        
+        const fList = document.getElementById('assign-plan-folders-list');
+        fList.innerHTML = '';
+        if (this.allPlanFolders.length === 0) fList.innerHTML = '<p style="font-size:0.9em; opacity:0.7;">Aucun dossier créé.</p>';
+        else {
             this.allPlanFolders.forEach(folder => {
                 const isChecked = planFolderIds.has(folder.id);
                 const label = document.createElement('label');
-                label.className = 'checkbox-label';
-                label.style.display = 'flex'; label.style.alignItems = 'center'; label.style.gap = '10px'; label.style.cursor = 'pointer'; label.style.fontSize = '1.1em';
+                label.style.cssText = 'display:flex; align-items:center; gap:10px; cursor:pointer; font-size:1.1em;';
                 label.innerHTML = `<input type="checkbox" class="plan-folder-checkbox" value="${folder.id}" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-primary);"><span>${folder.name}</span>`;
-                list.appendChild(label);
+                label.querySelector('input').addEventListener('change', () => this.renderAssignPlanTags(planTagIds));
+                fList.appendChild(label);
             });
         }
         
+        this.renderAssignPlanTags(planTagIds);
         this.assignPlanModal.classList.remove('hidden');
+    },
+
+    renderAssignPlanTags(planTagIds) {
+        const tList = document.getElementById('assign-plan-tags-list');
+        tList.innerHTML = '';
+        const selectedFolderIds = Array.from(document.querySelectorAll('.plan-folder-checkbox:checked')).map(cb => parseInt(cb.value, 10));
+        let hasTags = false;
+        
+        const appendGroup = (title, tags) => {
+            const groupTitle = document.createElement('div');
+            groupTitle.style.cssText = 'font-weight:bold; margin-top:10px; margin-bottom:5px; color:var(--color-primary); font-size:0.9em;';
+            groupTitle.textContent = title;
+            tList.appendChild(groupTitle);
+            tags.forEach(tag => {
+                const isChecked = planTagIds.has(tag.id);
+                const label = document.createElement('label');
+                label.style.cssText = 'display:flex; align-items:center; gap:10px; cursor:pointer; font-size:1.1em;';
+                label.innerHTML = `<input type="checkbox" class="plan-tag-checkbox" value="${tag.id}" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-primary);"><span>${tag.name}</span>`;
+                tList.appendChild(label);
+            });
+        };
+
+        const globalTags = this.allPlanTags.filter(t => t.folderId == null);
+        if (globalTags.length > 0) { hasTags = true; appendGroup("Tags Globaux", globalTags); }
+
+        selectedFolderIds.forEach(fId => {
+            const folder = this.allPlanFolders.find(f => f.id === fId);
+            const fTags = this.allPlanTags.filter(t => t.folderId === fId);
+            if (fTags.length > 0 && folder) { hasTags = true; appendGroup(`Tags : ${folder.name}`, fTags); }
+        });
+
+        if (!hasTags) tList.innerHTML = '<p style="font-size:0.9em; opacity:0.7;">Aucun tag disponible pour les dossiers sélectionnés.</p>';
     },
 
     async savePlanAssignment() {
         if (!this.currentPlanToAssign) return;
-        const selectedIds = Array.from(document.querySelectorAll('.plan-folder-checkbox:checked')).map(cb => parseInt(cb.value, 10));
+        const selectedFIds = Array.from(document.querySelectorAll('.plan-folder-checkbox:checked')).map(cb => parseInt(cb.value, 10));
+        const selectedTIds = Array.from(document.querySelectorAll('.plan-tag-checkbox:checked')).map(cb => parseInt(cb.value, 10));
         try {
-            await orbDB.assignFoldersToPlan(this.currentPlanToAssign.id, selectedIds);
+            await orbDB.assignFoldersToPlan(this.currentPlanToAssign.id, selectedFIds);
+            await orbDB.assignTagsToPlan(this.currentPlanToAssign.id, selectedTIds);
             this.assignPlanModal.classList.add('hidden');
             this.loadGrid();
         } catch(e) { console.error(e); }
+    },
+
+    renderPlanFilters(fIdSort) {
+        this.plannerFilters.style.display = 'flex';
+        this.plannerFilters.innerHTML = '';
+        
+        const reorderBtn = document.createElement('div');
+        reorderBtn.className = 'tag-chip';
+        reorderBtn.style.cssText = 'display:flex; align-items:center; justify-content:center; padding: 4px 8px;';
+        reorderBtn.innerHTML = `<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M3,13H21V11H3V13M3,17H21V15H3V17M3,9H21V7H3V9Z" /></svg>`;
+        reorderBtn.title = "Ordre d'affichage des tags";
+        reorderBtn.onclick = () => {
+            let fId = (typeof this.currentPlanFolderId === 'number') ? this.currentPlanFolderId : null;
+            const currentTags = this.allPlanTags.filter(t => t.folderId == fId);
+            if(currentTags.length === 0) return alert("Aucun tag ici.");
+            ORBReorder.open("Ordre des Tags", `planTags_${fIdSort}`, currentTags, () => this.loadGrid());
+        };
+        this.plannerFilters.appendChild(reorderBtn);
+
+        const allBtn = document.createElement('div');
+        allBtn.className = `tag-chip ${this.activePlanTagId === null ? 'active' : ''}`;
+        allBtn.textContent = "Tous les tags";
+        allBtn.onclick = () => { this.activePlanTagId = null; this.loadGrid(); };
+        this.plannerFilters.appendChild(allBtn);
+
+        let fId = (typeof this.currentPlanFolderId === 'number') ? this.currentPlanFolderId : null;
+        const currentTags = this.allPlanTags.filter(t => t.folderId == fId);
+        currentTags.forEach(tag => {
+            const tagBtn = document.createElement('div');
+            tagBtn.className = `tag-chip ${this.activePlanTagId === tag.id ? 'active' : ''}`;
+            tagBtn.textContent = tag.name;
+            tagBtn.onclick = () => { this.activePlanTagId = tag.id; this.loadGrid(); };
+            this.plannerFilters.appendChild(tagBtn);
+        });
+    },
+
+    openManagePlanTagsModal() {
+        const title = document.getElementById('manage-plan-tags-title');
+        if (this.currentPlanFolderId === null || this.currentPlanFolderId === 'ALL') {
+            title.textContent = "Gérer les Tags Globaux";
+        } else {
+            const folder = this.allPlanFolders.find(f => f.id === this.currentPlanFolderId);
+            title.textContent = folder ? `Tags : ${folder.name}` : "Gérer les Tags";
+        }
+        this.renderMasterPlanTagList();
+        this.managePlanTagsModal.classList.remove('hidden');
+    },
+
+    renderMasterPlanTagList() {
+        const list = document.getElementById('master-plan-tag-list');
+        list.innerHTML = '';
+        let fId = (typeof this.currentPlanFolderId === 'number') ? this.currentPlanFolderId : null;
+        const currentTags = this.allPlanTags.filter(t => t.folderId == fId);
+        
+        if (currentTags.length === 0) return list.innerHTML = '<li style="justify-content:center; opacity:0.6;">Aucun tag créé ici.</li>';
+        currentTags.forEach(tag => {
+            list.innerHTML += `<li data-id="${tag.id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--color-border);"><span style="font-weight:bold;">${tag.name}</span><button class="btn-icon danger" onclick="PlannerModule.deletePlanTag(${tag.id})" style="color:#ff4444;" title="Supprimer ce tag"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor;"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg></button></li>`;
+        });
+    },
+
+    async addPlanTag() {
+        const name = document.getElementById('new-plan-tag-name').value.trim();
+        if (name) {
+            try {
+                let fId = (typeof this.currentPlanFolderId === 'number') ? this.currentPlanFolderId : null;
+                await orbDB.addPlanTag(name, fId);
+                document.getElementById('new-plan-tag-name').value = '';
+                await this.loadGrid();
+                this.renderMasterPlanTagList();
+            } catch (e) { alert("Ce tag existe déjà."); }
+        }
+    },
+
+    async deletePlanTag(tagId) {
+        if (confirm("Voulez-vous vraiment supprimer ce tag ?")) {
+            await orbDB.deletePlanTag(tagId);
+            this.allPlans.forEach(p => {
+                if (p.tagIds && p.tagIds.includes(tagId)) {
+                    p.tagIds = p.tagIds.filter(id => id !== tagId);
+                    orbDB.assignTagsToPlan(p.id, p.tagIds);
+                }
+            });
+            await this.loadGrid();
+            this.renderMasterPlanTagList();
+        }
     },
 
     closeEditor() {

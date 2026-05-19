@@ -144,9 +144,14 @@
                 </button>
                 <span id="title-text">Vos Dossiers</span>
             </h2>
-            <div id="header-actions" style="display: flex; gap: 10px;">
+            <div id="library-header-actions" style="display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto;">
                 <button id="btn-create-folder" class="btn-primary" style="padding: 10px 20px; font-size: 1em; background: #111; color: var(--color-primary); border: 1px solid var(--color-primary);">+ Nouveau Dossier</button>
-                <button id="btn-manage-tags" class="btn-primary" style="padding: 10px 20px; font-size: 1em;">Gérer les Tags</button>
+                <button id="btn-manage-tags" class="btn-icon" style="padding: 10px; background: transparent; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text);" title="Gérer les Tags">
+                    <svg viewBox="0 0 24 24" style="width:20px; height:20px; fill:currentColor;"><path d="M21.41 11.58L12.41 2.58C12.05 2.22 11.55 2 11 2H4C2.9 2 2 2.9 2 4V11C2 11.55 2.22 12.05 2.59 12.41L11.58 21.41C11.95 21.77 12.45 22 13 22C13.55 22 14.05 21.77 14.41 21.41L21.41 14.41C21.78 14.05 22 13.55 22 13C22 12.45 21.77 11.95 21.41 11.58M13 20L4 11V4H11L20 13L13 20M6.5 5C7.33 5 8 5.67 8 6.5S7.33 8 6.5 8 5 7.33 5 6.5 5.67 5 6.5 5Z"/></svg>
+                </button>
+                <button id="btn-reorder-playbooks" class="btn-icon" style="padding: 10px; background: transparent; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text);" title="Ordre d'affichage">
+                    <svg viewBox="0 0 24 24" style="width:20px; height:20px; fill:currentColor;"><path d="M3,13H21V11H3V13M3,17H21V15H3V17M3,9H21V7H3V9Z"/></svg>
+                </button>
                 <button id="btn-fix-thumbnails" class="btn-primary" style="padding: 10px 20px; font-size: 1em; display: none; background: #111; color: var(--color-primary); border: 1px solid var(--color-primary);">Mettre à jour les aperçus</button>
             </div>
         </div>
@@ -255,6 +260,24 @@
                 }
             });
 
+            // Bouton Réorganiser (dossiers et schémas)
+            document.getElementById('btn-reorder-playbooks').addEventListener('click', () => {
+                if (viewMode === 'FOLDERS') {
+                    if (allFolders.length === 0) return alert("Aucun dossier à réorganiser.");
+                    ORBReorder.open("Ordre des Dossiers", "folders", allFolders, () => { loadData().then(renderView); });
+                } else {
+                    let fId = (typeof currentFolderId === 'number') ? currentFolderId : 'root';
+                    if (currentFolderId === 'ALL') fId = 'all';
+                    let items = allPlaybooks.filter(p => {
+                        if (currentFolderId === 'ALL') return true;
+                        if (fId === 'root') return !p.folderIds || p.folderIds.length === 0;
+                        return p.folderIds && p.folderIds.includes(fId);
+                    });
+                    if (items.length === 0) return alert("Aucun schéma à réorganiser ici.");
+                    ORBReorder.open("Ordre des Schémas", `playbooks_${fId}`, items, () => { loadData().then(renderView); });
+                }
+            });
+
             // Bouton Gérer les tags
             document.getElementById('btn-manage-tags').addEventListener('click', async () => {
                 await loadData();
@@ -324,9 +347,12 @@
             });
 
             async function loadData() {
-                [allPlaybooks, allTags, allFolders] = await Promise.all([
+                const [pb, t, f] = await Promise.all([
                     orbDB.getAllPlaybooks(), orbDB.getAllTags(), orbDB.getAllFolders()
                 ]);
+                allPlaybooks = pb || [];
+                allTags = ORBReorder.sort(t || [], 'tags');
+                allFolders = ORBReorder.sort(f || [], 'folders');
             }
 
             function renderView() {
@@ -346,6 +372,8 @@
                 titleText.textContent = "Vos Dossiers";
                 btnBackFolders.style.display = 'none';
                 btnCreateFolder.style.display = 'inline-block';
+                const btnReorder = document.getElementById('btn-reorder-playbooks');
+                if (btnReorder) btnReorder.style.display = 'inline-block';
                 const btnFix = document.getElementById('btn-fix-thumbnails');
                 if (btnFix) btnFix.style.display = 'none';
                 libraryFilters.style.display = 'none';
@@ -397,6 +425,8 @@
             function renderPlaybooksGrid() {
                 btnBackFolders.style.display = 'inline-flex';
                 btnCreateFolder.style.display = 'none';
+                const btnReorder = document.getElementById('btn-reorder-playbooks');
+                if (btnReorder) btnReorder.style.display = 'none';
                 const btnFix = document.getElementById('btn-fix-thumbnails');
                 if (btnFix) btnFix.style.display = (currentFolderId === 'ALL') ? 'inline-block' : 'none';
                 libraryGrid.innerHTML = '';
@@ -427,19 +457,34 @@
                 libraryFilters.innerHTML = ''; 
                 libraryFilters.style.display = 'flex';
                 
-                const allBtn = document.createElement('button');
+                let fIdSort = (typeof currentFolderId === 'number') ? currentFolderId : 'root';
+                if (currentFolderId === 'ALL') fIdSort = 'all';
+                
+                const reorderBtn = document.createElement('div');
+                reorderBtn.className = 'tag-chip';
+                reorderBtn.style.cssText = 'display:flex; align-items:center; justify-content:center; padding: 4px 8px;';
+                reorderBtn.innerHTML = `<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M3,13H21V11H3V13M3,17H21V15H3V17M3,9H21V7H3V9Z" /></svg>`;
+                reorderBtn.title = "Ordre d'affichage des tags";
+                reorderBtn.onclick = () => {
+                    let fId = (typeof currentFolderId === 'number') ? currentFolderId : null;
+                    const currentTags = allTags.filter(t => t.folderId == fId);
+                    if(currentTags.length === 0) return alert("Aucun tag ici.");
+                    ORBReorder.open("Ordre des Tags", `tags_${fIdSort}`, currentTags, () => { loadData().then(renderView); });
+                };
+                libraryFilters.appendChild(reorderBtn);
+
+                const allBtn = document.createElement('div');
+                allBtn.className = `tag-chip ${activeFilterTagId === null ? 'active' : ''}`;
                 allBtn.textContent = "Tous les tags";
-                if (activeFilterTagId === null) allBtn.classList.add('active');
                 allBtn.onclick = () => { activeFilterTagId = null; renderView(); };
                 libraryFilters.appendChild(allBtn);
 
                 let fId = (typeof currentFolderId === 'number') ? currentFolderId : null;
                 const currentTags = allTags.filter(t => t.folderId == fId);
-
                 currentTags.forEach(tag => {
-                    const tagBtn = document.createElement('button');
+                    const tagBtn = document.createElement('div');
+                    tagBtn.className = `tag-chip ${activeFilterTagId === tag.id ? 'active' : ''}`;
                     tagBtn.textContent = tag.name;
-                    if (activeFilterTagId === tag.id) tagBtn.classList.add('active');
                     tagBtn.onclick = () => { activeFilterTagId = tag.id; renderView(); };
                     libraryFilters.appendChild(tagBtn);
                 });
@@ -606,5 +651,6 @@
         });
     </script>
     <script src="../../core/sync.js"></script>
+    <script src="../../core/reorder.js"></script>
 </body>
 </html>

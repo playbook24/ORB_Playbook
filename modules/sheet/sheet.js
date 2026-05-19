@@ -135,6 +135,37 @@ const SheetStudio = {
             }
         };
 
+        document.getElementById('btn-reorder-sheets').onclick = () => {
+            if (this.sheetViewMode === 'FOLDERS') {
+                if (this.allSheetFolders.length === 0) return alert("Aucun dossier à réorganiser.");
+                ORBReorder.open("Ordre des Dossiers", "sheetFolders", this.allSheetFolders, () => { this.renderStorageList(); });
+            } else {
+                let fIdSort = (typeof this.currentSheetFolderId === 'number') ? this.currentSheetFolderId : 'root';
+                if (this.currentSheetFolderId === 'ALL') fIdSort = 'all';
+                let items = this.allSheets.filter(s => {
+                    if (this.currentSheetFolderId === 'ALL') return true;
+                    if (fIdSort === 'root') return !s.folderIds || s.folderIds.length === 0;
+                    return s.folderIds && s.folderIds.includes(fIdSort);
+                });
+                if (items.length === 0) return alert("Aucune fiche à réorganiser ici.");
+                ORBReorder.open("Ordre des Fiches", `sheets_${fIdSort}`, items, () => { this.renderStorageList(); });
+            }
+        };
+
+        document.getElementById('btn-manage-sheet-tags').onclick = () => this.openManageSheetTagsModal();
+        document.getElementById('manage-sheet-tags-close-btn').onclick = () => document.getElementById('manage-sheet-tags-modal').classList.add('hidden');
+        document.getElementById('btn-add-new-manage-sheet-tag').onclick = async () => {
+            const val = document.getElementById('new-manage-sheet-tag-name').value.trim();
+            if(val) {
+                try {
+                    await orbDB.addSheetTag(val);
+                    await this.loadData();
+                    document.getElementById('new-manage-sheet-tag-name').value = '';
+                    this.renderMasterSheetTagList();
+                } catch(e) { alert("Tag existe déjà."); }
+            }
+        };
+
         document.getElementById('btn-back-sheet-folders').onclick = () => {
             this.sheetViewMode = 'FOLDERS';
             this.currentSheetFolderId = null;
@@ -247,7 +278,6 @@ const SheetStudio = {
             if (!this.currentSheetToAssign) return;
             const selectedFolderIds = Array.from(document.querySelectorAll('#assign-sheet-folders-list input:checked')).map(cb => parseInt(cb.value, 10));
             const selectedTagIds = Array.from(document.querySelectorAll('#assign-sheet-tags-list input:checked')).map(cb => parseInt(cb.value, 10));
-            
             const sheet = this.currentSheetToAssign;
             sheet.folderIds = selectedFolderIds;
             sheet.tagIds = selectedTagIds;
@@ -262,6 +292,35 @@ const SheetStudio = {
         });
         document.addEventListener('mousemove', (e) => this.onMouseMove(e));
         document.addEventListener('mouseup', (e) => this.onMouseUp(e));
+    },
+
+    openManageSheetTagsModal() {
+        this.renderMasterSheetTagList();
+        document.getElementById('manage-sheet-tags-modal').classList.remove('hidden');
+    },
+
+    renderMasterSheetTagList() {
+        const list = document.getElementById('master-sheet-tag-list');
+        list.innerHTML = '';
+        if (this.allSheetTags.length === 0) return list.innerHTML = '<li style="justify-content:center; opacity:0.6;">Aucun tag créé.</li>';
+        
+        this.allSheetTags.forEach(tag => {
+            list.innerHTML += `<li data-id="${tag.id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--color-border);"><span style="font-weight:bold;">${tag.name}</span><button class="btn-icon danger" onclick="SheetStudio.deleteSheetTag(${tag.id})" style="color:#ff4444;" title="Supprimer ce tag"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor;"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg></button></li>`;
+        });
+    },
+
+    async deleteSheetTag(tagId) {
+        if (confirm("Voulez-vous vraiment supprimer ce tag ?")) {
+            await orbDB.deleteSheetTag(tagId);
+            for(let s of this.allSheets) {
+                if (s.tagIds && s.tagIds.includes(tagId)) {
+                    s.tagIds = s.tagIds.filter(id => id !== tagId);
+                    await orbDB.saveSheet(s, s.id);
+                }
+            }
+            await this.loadData();
+            this.renderMasterSheetTagList();
+        }
     },
 
     commitState() {
@@ -293,9 +352,17 @@ const SheetStudio = {
 
     async loadData() {
         try {
-            [this.allPlaybooks, this.allPlans, this.allSheets, this.allTags, this.allSheetTags, this.allFolders, this.allPlanFolders, this.allSheetFolders] = await Promise.all([
+            const [p, pl, s, t, st, f, pf, sf] = await Promise.all([
                 orbDB.getAllPlaybooks(), orbDB.getAllPlans(), orbDB.getAllSheets(), orbDB.getAllTags(), orbDB.getAllSheetTags(), orbDB.getAllFolders(), orbDB.getAllPlanFolders(), orbDB.getAllSheetFolders()
             ]);
+            this.allPlaybooks = p || [];
+            this.allPlans = pl || [];
+            this.allSheets = s || [];
+            this.allTags = t || [];
+            this.allSheetTags = ORBReorder.sort(st || [], 'sheetTags');
+            this.allFolders = f || [];
+            this.allPlanFolders = pf || [];
+            this.allSheetFolders = ORBReorder.sort(sf || [], 'sheetFolders');
         } catch(e) {
             console.warn("Base de données en cours de mise à jour, fallback activé.");
             this.allSheetTags = [];
@@ -389,6 +456,17 @@ const SheetStudio = {
     renderTagsFilterStorage() {
         const container = document.getElementById('filter-tags-storage');
         container.innerHTML = '';
+        
+        const reorderBtn = document.createElement('div');
+        reorderBtn.className = 'tag-chip';
+        reorderBtn.style.cssText = 'display:flex; align-items:center; justify-content:center; padding: 4px 8px;';
+        reorderBtn.innerHTML = `<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M3,13H15V11H3M3,17H15V15H3M3,9H15V7H3M17,13H19V17H22V19H14V17H17M22,7V9H14V7H17V3H19V7H22Z" /></svg>`;
+        reorderBtn.onclick = () => {
+            if(this.allSheetTags.length === 0) return alert("Aucun tag.");
+            ORBReorder.open("Ordre des Tags", `sheetTags`, this.allSheetTags, () => { this.loadData(); });
+        };
+        container.appendChild(reorderBtn);
+
         const allBtn = document.createElement('div');
         allBtn.className = `tag-chip ${this.activeTagStorage === null ? 'active' : ''}`;
         allBtn.textContent = "Toutes les fiches";
@@ -525,7 +603,11 @@ const SheetStudio = {
                 return;
             }
             
-            filtered.reverse().forEach(sheet => {
+            let fIdSort = (typeof this.currentSheetFolderId === 'number') ? this.currentSheetFolderId : 'root';
+            if (this.currentSheetFolderId === 'ALL') fIdSort = 'all';
+            filtered = ORBReorder.sort(filtered, `sheets_${fIdSort}`);
+            
+            filtered.forEach(sheet => {
                 const div = document.createElement('div');
                 div.className = 'playbook-card';
                 div.style.cssText = 'background: var(--color-container); border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-soft); cursor: pointer;';

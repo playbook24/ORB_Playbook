@@ -42,6 +42,12 @@ const ArchiveModule = {
         document.getElementById('btn-close-archive-tags-modal').onclick = () => this.archiveTagsModal.classList.add('hidden');
         document.getElementById('btn-add-archive-tag').onclick = () => this.addGlobalTag();
 
+        document.getElementById('btn-reorder-archive-tags').onclick = async () => {
+            const tags = await orbDB.getAllArchiveTags();
+            if(!tags || tags.length === 0) return alert("Aucun tag à réorganiser.");
+            ORBReorder.open("Ordre des Tags", "archiveTags", tags, () => { this.loadArchivedTeams(); });
+        };
+
         // Modal Assigner Tags
         document.getElementById('btn-assign-tags').onclick = () => this.openAssignTagsModal();
         document.getElementById('btn-close-assign-tags').onclick = () => this.assignTagsModal.classList.add('hidden');
@@ -49,10 +55,11 @@ const ArchiveModule = {
     },
 
     async loadArchivedTeams(filterTag = null) {
-        const [teams, globalTags] = await Promise.all([
+        let [teams, globalTags] = await Promise.all([
             orbDB.getAllTeams(),
             orbDB.getAllArchiveTags()
         ]);
+        globalTags = ORBReorder.sort(globalTags || [], 'archiveTags');
         let archivedTeams = teams.filter(t => t.archived === true);
         
         this.archiveFilterContainer.innerHTML = '';
@@ -127,7 +134,8 @@ const ArchiveModule = {
 
     async renderManageTagsList() {
         this.archiveTagsList.innerHTML = 'Chargement...';
-        const tags = await orbDB.getAllArchiveTags() || [];
+        let tags = await orbDB.getAllArchiveTags() || [];
+        tags = ORBReorder.sort(tags, 'archiveTags');
         this.archiveTagsList.innerHTML = '';
         
         if (tags.length === 0) {
@@ -183,10 +191,11 @@ const ArchiveModule = {
         if (!this.currentTeamId) return;
         this.assignTagsModal.classList.remove('hidden');
         
-        const [globalTags, teams] = await Promise.all([
+        let [globalTags, teams] = await Promise.all([
             orbDB.getAllArchiveTags(),
             orbDB.getAllTeams()
         ]);
+        globalTags = ORBReorder.sort(globalTags || [], 'archiveTags');
         const currentTeam = teams.find(t => t.id === this.currentTeamId);
         const teamTags = currentTeam.tags || [];
 

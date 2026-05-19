@@ -12,7 +12,7 @@ class ORBDatabase {
     async open() {
         return new Promise((resolve, reject) => {
             if (this.db) { resolve(this.db); return; }
-            const request = indexedDB.open(this.dbName, 12); 
+            const request = indexedDB.open(this.dbName, 13); 
             request.onerror = (e) => { console.error("Erreur d'ouverture BDD", e); reject("Erreur BDD"); };
             request.onsuccess = (e) => { this.db = e.target.result; resolve(this.db); };
             request.onupgradeneeded = (e) => {
@@ -29,6 +29,7 @@ class ORBDatabase {
                 if (!db.objectStoreNames.contains('planFolders')) db.createObjectStore('planFolders', { keyPath: 'id', autoIncrement: true });
                 if (!db.objectStoreNames.contains('sheetFolders')) db.createObjectStore('sheetFolders', { keyPath: 'id', autoIncrement: true });
                 if (!db.objectStoreNames.contains('archiveTags')) db.createObjectStore('archiveTags', { keyPath: 'id', autoIncrement: true });
+                if (!db.objectStoreNames.contains('planTags')) db.createObjectStore('planTags', { keyPath: 'id', autoIncrement: true });
             };
         });
     }
@@ -149,6 +150,7 @@ class ORBDatabase {
     async savePlan(data, id = null) { 
         if (!this.db) await this.open(); 
         let existingFolderIds = [];
+        let existingTagIds = [];
         if (id) {
             try {
                 const existing = await this.getPlan(id);
@@ -173,11 +175,16 @@ class ORBDatabase {
     async getPlan(id) { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['trainingPlans'], 'readonly').objectStore('trainingPlans').get(id).onsuccess = e => res(e.target.result); }); }
     async deletePlan(id) { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['trainingPlans'], 'readwrite').objectStore('trainingPlans').delete(id).onsuccess = () => { this._triggerSync(); res(true); }; }); }
     async assignFoldersToPlan(planId, folderIds) { if (!this.db) await this.open(); return new Promise(async (res, rej) => { const plan = await this.getPlan(planId); if (!plan) return rej("Introuvable"); plan.folderIds = folderIds; this.db.transaction(['trainingPlans'], 'readwrite').objectStore('trainingPlans').put(plan).onsuccess = () => { this._triggerSync(); res(true); }; }); }
+    async assignTagsToPlan(planId, tagIds) { if (!this.db) await this.open(); return new Promise(async (res, rej) => { const plan = await this.getPlan(planId); if (!plan) return rej("Introuvable"); plan.tagIds = tagIds; this.db.transaction(['trainingPlans'], 'readwrite').objectStore('trainingPlans').put(plan).onsuccess = () => { this._triggerSync(); res(true); }; }); }
 
-    // --- DOSSIERS DE SÉANCES (PLANFOLDERS) ---
+    // --- DOSSIERS DE SÉANCES ET TAGS (PLANNER) ---
     async getAllPlanFolders() { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['planFolders'], 'readonly').objectStore('planFolders').getAll().onsuccess = e => res(e.target.result); }); }
     async addPlanFolder(name) { if (!this.db) await this.open(); return new Promise((res, rej) => { const req = this.db.transaction(['planFolders'], 'readwrite').objectStore('planFolders').add({name}); req.onsuccess = e => { this._triggerSync(); res(e.target.result); }; req.onerror = e => rej(e);}); }
     async deletePlanFolder(id) { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['planFolders'], 'readwrite').objectStore('planFolders').delete(id).onsuccess = () => { this._triggerSync(); res(true); }; }); }
+
+    async getAllPlanTags() { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['planTags'], 'readonly').objectStore('planTags').getAll().onsuccess = e => res(e.target.result); }); }
+    async addPlanTag(name, folderId = null) { if (!this.db) await this.open(); return new Promise(async (res, rej) => { const tags = await this.getAllPlanTags(); if (tags.find(t => t.name.toLowerCase() === name.toLowerCase() && t.folderId == folderId)) return rej("Tag existe déjà"); const req = this.db.transaction(['planTags'], 'readwrite').objectStore('planTags').add({name, folderId}); req.onsuccess = e => { this._triggerSync(); res(e.target.result); }; req.onerror = e => rej(e);}); }
+    async deletePlanTag(id) { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['planTags'], 'readwrite').objectStore('planTags').delete(id).onsuccess = () => { this._triggerSync(); res(true); }; }); }
 
     // --- TAGS ---
     async getAllTags() { if (!this.db) await this.open(); return new Promise(res => { this.db.transaction(['tags'], 'readonly').objectStore('tags').getAll().onsuccess = e => res(e.target.result); }); }
