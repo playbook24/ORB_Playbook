@@ -31,17 +31,7 @@
             <select id="roster-team-select" style="width: 100%; font-size: 1.1em; font-weight: bold; background: var(--color-background); color: var(--color-text); border: 1px solid var(--color-border); padding: 12px; border-radius: 6px;"></select>
         </div>
 
-        <div class="section-container">
-            <h3 style="margin-top: 0;">Ajouter un Joueur</h3>
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <input type="text" id="roster-lastname" placeholder="Nom" style="flex: 1; min-width: 150px;">
-                <input type="text" id="roster-firstname" placeholder="Prénom" style="flex: 1; min-width: 150px;">
-                <input type="text" id="roster-license" placeholder="N° Licence" style="flex: 1; min-width: 120px;">
-                <input type="number" id="roster-jersey" placeholder="N° Maillot" style="width: 100px;">
-                <button id="btn-add-player" class="btn-primary" style="padding: 10px 30px;">Ajouter</button>
-            </div>
-        </div>
-        
+
         <div id="roster-list" class="roster-grid"></div>
 
         <div id="edit-team-modal" class="modal-overlay hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9000; display:flex; align-items:center; justify-content:center;">
@@ -61,7 +51,10 @@
                 </div>
 
                 <div style="margin-bottom:20px;">
-                    <label style="display:block; font-weight:bold; margin-bottom:8px; color:var(--color-text);">Joueurs :</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <label style="font-weight:bold; color:var(--color-text); margin:0;">Joueurs :</label>
+                        <button id="btn-add-player-edit" class="btn-primary" style="padding: 5px 15px; font-size: 0.9em;">+ Ajouter</button>
+                    </div>
                     <div id="edit-team-players-list" style="display:flex; flex-direction:column; gap:10px;">
                         <!-- La liste des joueurs modifiables -->
                     </div>
@@ -78,6 +71,27 @@
         </div>
 
     </main>
+
+    <!-- Modale Profil du Joueur -->
+    <div id="player-details-modal" class="modal-overlay hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9000; display:flex; align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width: 500px; width: 95%; background:var(--color-background); border:1px solid var(--color-border); border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-height:90vh; overflow-y:auto;">
+            <header style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--color-border); padding-bottom: 15px; margin-bottom: 15px;">
+                <div>
+                    <h3 id="player-modal-name" style="margin: 0; color: var(--color-primary); font-size: 1.4em;">Nom du Joueur</h3>
+                    <div id="player-modal-info" style="font-size: 0.9em; opacity: 0.7; margin-top: 5px;">Licence: - | N°: -</div>
+                </div>
+                <button id="close-player-modal" class="btn-icon danger" style="background:transparent; border:none; cursor:pointer; color:var(--color-primary);"><svg viewBox="0 0 24 24" style="width:24px; height:24px; fill:currentColor;"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg></button>
+            </header>
+
+            <div id="player-modal-stats" style="display:flex; flex-direction:column; gap: 15px;">
+                <!-- Les stats seront injectées ici par le JS -->
+            </div>
+            
+            <div style="display: flex; justify-content: center; margin-top: 25px; border-top: 1px solid var(--color-border); padding-top: 15px;">
+                <button id="close-player-modal-btn" class="btn-primary" style="padding: 10px 20px;">Fermer</button>
+            </div>
+        </div>
+    </div>
 
     <script src="../../core/db.js"></script>
     <script src="roster.js"></script>

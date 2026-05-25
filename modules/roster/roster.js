@@ -14,15 +14,16 @@ const RosterModule = {
     cacheDOM() {
         this.teamSelect = document.getElementById('roster-team-select');
         this.listContainer = document.getElementById('roster-list');
-        this.inputLastName = document.getElementById('roster-lastname');
-        this.inputFirstName = document.getElementById('roster-firstname');
-        this.inputLicense = document.getElementById('roster-license');
-        this.inputJersey = document.getElementById('roster-jersey');
         
         this.editModal = document.getElementById('edit-team-modal');
         this.editTeamName = document.getElementById('edit-team-name');
         this.editTeamColors = document.getElementById('edit-team-colors');
         this.editTeamPlayersList = document.getElementById('edit-team-players-list');
+        
+        this.playerModal = document.getElementById('player-details-modal');
+        this.playerModalName = document.getElementById('player-modal-name');
+        this.playerModalInfo = document.getElementById('player-modal-info');
+        this.playerModalStats = document.getElementById('player-modal-stats');
     },
 
     bindEvents() {
@@ -31,7 +32,6 @@ const RosterModule = {
             this.loadTeams();
         });
 
-        document.getElementById('btn-add-player').onclick = () => this.addPlayer();
         document.getElementById('btn-create-team').onclick = () => this.createTeam();
         
         document.getElementById('btn-edit-team').onclick = () => this.editTeam();
@@ -40,6 +40,10 @@ const RosterModule = {
 
         document.getElementById('close-edit-team-modal').onclick = () => this.editModal.classList.add('hidden');
         document.getElementById('save-edit-team-modal').onclick = () => this.saveEditTeam();
+        document.getElementById('btn-add-player-edit').onclick = () => this.addPlayerToEdit();
+        
+        document.getElementById('close-player-modal').onclick = () => this.playerModal.classList.add('hidden');
+        document.getElementById('close-player-modal-btn').onclick = () => this.playerModal.classList.add('hidden');
     },
 
     async createTeam() {
@@ -115,6 +119,18 @@ const RosterModule = {
         });
     },
 
+    addPlayerToEdit() {
+        this.editTeamPlayersData.push({
+            lastName: '',
+            firstName: '',
+            license: '',
+            jersey: '',
+            teamId: this.currentTeamId,
+            isNew: true
+        });
+        this.renderEditPlayers();
+    },
+
     updateEditPlayer(index, field, value) {
         if (this.editTeamPlayersData[index]) {
             this.editTeamPlayersData[index][field] = value;
@@ -123,7 +139,11 @@ const RosterModule = {
 
     markPlayerDeleted(index) {
         if (this.editTeamPlayersData[index]) {
-            if (confirm("Confirmer la suppression de ce joueur ?")) {
+            if (this.editTeamPlayersData[index].isNew) {
+                // S'il est nouveau, on le retire simplement du tableau
+                this.editTeamPlayersData.splice(index, 1);
+                this.renderEditPlayers();
+            } else if (confirm("Confirmer la suppression de ce joueur ?")) {
                 this.editTeamPlayersData[index]._deleted = true;
                 this.renderEditPlayers();
             }
@@ -141,12 +161,14 @@ const RosterModule = {
 
         for (let p of this.editTeamPlayersData) {
             if (p._deleted) {
-                await orbDB.deletePlayer(p.id);
+                if (p.id) await orbDB.deletePlayer(p.id);
             } else {
                 p.lastName = p.lastName.trim();
                 p.firstName = p.firstName.trim();
-                if (p.license !== undefined) p.license = p.license.trim();
-                if (p.jersey !== undefined) p.jersey = p.jersey.trim();
+                if (!p.lastName || !p.firstName) continue; // Ignorer les joueurs vides
+                if (p.license !== undefined) p.license = String(p.license).trim();
+                if (p.jersey !== undefined) p.jersey = String(p.jersey).trim();
+                delete p.isNew;
                 await orbDB.savePlayer(p);
             }
         }
@@ -239,13 +261,26 @@ const RosterModule = {
 
         const computeAtt = (pId, evts) => {
             let present = 0;
-            let active = 0;
+            let absent = 0;
+            let injured = 0;
+            
             evts.forEach(e => {
                 const stat = e.attendance[pId];
-                if (stat === 'present') { present++; active++; }
-                else if (stat === 'absent') { active++; }
+                if (stat === 'present') present++;
+                else if (stat === 'absent') absent++;
+                else if (stat === 'injured') injured++;
             });
-            return active > 0 ? { perc: Math.round((present / active) * 100), str: `(${present}/${active})` } : null;
+            
+            const totalActive = present + absent; // without injury
+            const totalWithInjured = present + absent + injured; // with injury
+            
+            return {
+                netPerc: totalActive > 0 ? Math.round((present / totalActive) * 100) : null,
+                netStr: `(${present}/${totalActive})`,
+                grossPerc: totalWithInjured > 0 ? Math.round((present / totalWithInjured) * 100) : null,
+                grossStr: `(${present}/${totalWithInjured})`,
+                present, absent, injured
+            };
         };
 
         teamPlayers.forEach(p => {
@@ -253,61 +288,67 @@ const RosterModule = {
             const trainAtt = computeAtt(p.id, trainingEvents);
             const matchAtt = computeAtt(p.id, matchEvents);
 
-            const formatAtt = (attObj) => attObj 
-                ? `<span style="color:var(--color-primary); font-weight:bold;">${attObj.perc}%</span> <span style="opacity:0.7; font-size:0.85em;">${attObj.str}</span>`
-                : `<span style="opacity:0.5; font-size:0.85em;">-</span>`;
+            const formatAtt = (attObj) => {
+                if (attObj.netPerc === null && attObj.grossPerc === null) return `<span style="opacity:0.5; font-size:0.85em; display:block; text-align:center;">Aucune donnée</span>`;
+                return `
+                    <div style="display:flex; justify-content: space-around; width:100%; gap: 10px;">
+                        <div style="text-align:center; flex:1;">
+                            <div style="font-size:0.7em; opacity:0.6; margin-bottom:2px;">Net (Sans Blessure)</div>
+                            <span style="color:var(--color-primary); font-weight:bold; font-size:1.2em;">${attObj.netPerc !== null ? attObj.netPerc + '%' : '-'}</span> 
+                            <span style="opacity:0.7; font-size:0.85em; display:block;">${attObj.netStr}</span>
+                        </div>
+                        <div style="border-left: 1px solid var(--color-border);"></div>
+                        <div style="text-align:center; flex:1;">
+                            <div style="font-size:0.7em; opacity:0.6; margin-bottom:2px;">Brut (Avec Blessure)</div>
+                            <span style="color:var(--color-text); font-weight:bold; font-size:1.2em;">${attObj.grossPerc !== null ? attObj.grossPerc + '%' : '-'}</span> 
+                            <span style="opacity:0.7; font-size:0.85em; display:block;">${attObj.grossStr}</span>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px; font-size:0.8em; opacity:0.7; border-top:1px solid rgba(255,255,255,0.1); padding-top:8px; text-align:center; display:flex; justify-content:center; gap:15px;">
+                        <span>Présent: <b>${attObj.present}</b></span>
+                        <span>Absent: <b>${attObj.absent}</b></span>
+                        <span style="color:#ff6b6b;">Blessé: <b>${attObj.injured}</b></span>
+                    </div>
+                `;
+            };
 
             const card = document.createElement('div');
             card.className = 'roster-card';
-            card.style.cssText = 'display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;';
-            
-            card.innerHTML = `
-                <div class="player-info" style="flex-grow: 1; min-width: 150px;">
-                    <div class="player-name" style="font-weight: bold; font-size: 1.1em; color: var(--color-text);">${p.lastName.toUpperCase()} ${p.firstName}</div>
-                    <div class="player-license" style="font-size: 0.9em; opacity: 0.7; margin-top: 5px;">Licence : ${p.license || '-'} | N°: ${p.jersey || '-'}</div>
-                </div>
+            card.style.cssText = 'background: var(--color-container); border: 1px solid var(--color-border); border-radius: 8px; padding: 15px; cursor: pointer; transition: background 0.2s; margin-bottom: 10px;';
+            card.onclick = () => {
+                // Populate Modal
+                this.playerModalName.textContent = `${p.lastName.toUpperCase()} ${p.firstName}`;
+                this.playerModalInfo.textContent = `Licence : ${p.license || '-'} | N°: ${p.jersey || '-'}`;
                 
-                <div style="display:flex; gap: 15px; flex-wrap: wrap; text-align: center;">
-                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--color-border); border-radius:6px; padding:8px 12px;">
-                        <div style="font-size:0.7em; text-transform:uppercase; letter-spacing:1px; opacity:0.6; margin-bottom:5px;">Entraînements</div>
-                        <div>${formatAtt(trainAtt)}</div>
+                this.playerModalStats.innerHTML = `
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--color-border); border-radius:6px; padding:15px;">
+                        <div style="font-size:0.8em; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; text-align:center; color:var(--color-primary); font-weight:bold;">Entraînements</div>
+                        ${formatAtt(trainAtt)}
                     </div>
-                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--color-border); border-radius:6px; padding:8px 12px;">
-                        <div style="font-size:0.7em; text-transform:uppercase; letter-spacing:1px; opacity:0.6; margin-bottom:5px;">Matchs</div>
-                        <div>${formatAtt(matchAtt)}</div>
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--color-border); border-radius:6px; padding:15px;">
+                        <div style="font-size:0.8em; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; text-align:center; color:var(--color-primary); font-weight:bold;">Matchs</div>
+                        ${formatAtt(matchAtt)}
                     </div>
-                    <div style="background:var(--color-container); border:1px dashed var(--color-primary); border-radius:6px; padding:8px 12px;">
-                        <div style="font-size:0.7em; text-transform:uppercase; letter-spacing:1px; opacity:0.6; margin-bottom:5px;">Global</div>
-                        <div>${formatAtt(globalAtt)}</div>
+                    <div style="background:rgba(0,0,0,0.2); border:1px dashed var(--color-primary); border-radius:6px; padding:15px;">
+                        <div style="font-size:0.8em; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; text-align:center; color:var(--color-primary); font-weight:bold;">Global (Tout)</div>
+                        ${formatAtt(globalAtt)}
+                    </div>
+                `;
+                
+                this.playerModal.classList.remove('hidden');
+            };
+
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="player-info">
+                        <div class="player-name" style="font-weight: bold; font-size: 1.1em; color: var(--color-text);">${p.lastName.toUpperCase()} ${p.firstName}</div>
+                        <div class="player-license" style="font-size: 0.9em; opacity: 0.7; margin-top: 5px;">Licence : ${p.license || '-'} | N°: ${p.jersey || '-'}</div>
                     </div>
                 </div>
-                <div style="display:none;"></div>
             `;
             this.listContainer.appendChild(card);
         });
     },
-
-    async addPlayer() {
-        const lastName = this.inputLastName.value.trim();
-        const firstName = this.inputFirstName.value.trim();
-        if (!lastName || !firstName) return alert("Nom et prénom requis");
-
-        await orbDB.savePlayer({
-            lastName, firstName, 
-            license: this.inputLicense.value,
-            jersey: this.inputJersey.value,
-            teamId: this.currentTeamId,
-            createdAt: new Date()
-        });
-        
-        this.inputLastName.value = '';
-        this.inputFirstName.value = '';
-        this.inputLicense.value = '';
-        this.inputJersey.value = '';
-        this.loadRoster();
-    },
-
-
 
     async deletePlayer(id) {
         if(confirm("Supprimer définitivement ce joueur ?")) {

@@ -224,7 +224,7 @@ const PlannerModule = {
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h3 style="margin-top:0; color:var(--color-primary); font-size:1.4em; border-bottom:1px solid var(--color-border); padding-bottom:10px; flex-grow:1;">${plan.name || 'Séance sans nom'}</h3>
                     <button class="btn-icon" title="Classer la séance" onclick="PlannerModule.openAssignPlanModal(${plan.id})" style="color:var(--color-primary); margin-left:10px;">
-                        <svg viewBox="0 0 24 24" style="width:24px;"><path d="M5.5,7A1.5,1.5 0 0,0 7,5.5A1.5,1.5 0 0,0 5.5,4A1.5,1.5 0 0,0 4,5.5A1.5,1.5 0 0,0 5.5,7M21.4,11.6L20.7,14.4C20.4,15.8 19.2,16.8 17.8,16.8H17.2L12.8,21.2C12.4,21.6 11.7,21.8 11.1,21.6C10.5,21.4 10,20.9 9.8,20.3L9.1,18H4C2.9,18 2,17.1 2,16V4C2,2.9 2.9,2 4,2H16C17.1,2 18,2.9 18,4V10.3L20.8,10.6C21.6,10.7 22.1,11.3 21.9,12.1L21.4,11.6M16,4H4V16H9.4L13.2,19.8L16.8,16.2C17,16.1 17.2,16 17.3,16H18.9L19.4,12H18V10C18,8.9 17.1,8 16,8H15V6C15,4.9 14.1,4 13,4H10V6H13V8H10V10H16V4Z"/></svg>
+                        <svg viewBox="0 0 24 24" style="width:24px;"><path d="M21.41 11.58L12.41 2.58C12.05 2.22 11.55 2 11 2H4C2.9 2 2 2.9 2 4V11C2 11.55 2.22 12.05 2.59 12.41L11.58 21.41C11.95 21.77 12.45 22 13 22C13.55 22 14.05 21.77 14.41 21.41L21.41 14.41C21.78 14.05 22 13.55 22 13C22 12.45 21.77 11.95 21.41 11.58M13 20L4 11V4H11L20 13L13 20M6.5 5C7.33 5 8 5.67 8 6.5S7.33 8 6.5 8 5 7.33 5 6.5 5.67 5 6.5 5Z"/></svg>
                     </button>
                 </div>
                 <p style="opacity:0.8; font-size:1em; margin: 15px 0;"><strong style="color:var(--color-text)">${plan.playbookIds.length}</strong> exercices inclus</p>
