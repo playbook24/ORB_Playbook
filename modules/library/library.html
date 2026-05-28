@@ -157,6 +157,9 @@
         </div>
 
         <div id="library-filters" class="library-filters"></div>
+        <div id="library-search-container" style="display: none; margin-bottom: 20px;">
+            <input type="text" id="library-search-input" placeholder="Rechercher un exercice par nom..." style="width: 100%; background: var(--color-input-background); border: 1px solid var(--color-input-border); color: var(--color-text); padding: 12px; border-radius: 8px; font-family: inherit; font-size: 1em; box-sizing: border-box;">
+        </div>
         <div id="library-grid" class="library-grid"></div>
     </div>
 
@@ -215,6 +218,7 @@
             let allTags = [];
             let allFolders = [];
             let activeFilterTagId = null; 
+            let activeSearchQuery = '';
             let currentPlaybookToAssign = null; 
 
             const libraryGrid = document.getElementById('library-grid');
@@ -248,7 +252,14 @@
                 viewMode = 'FOLDERS';
                 currentFolderId = null;
                 activeFilterTagId = null;
+                activeSearchQuery = '';
+                document.getElementById('library-search-input').value = '';
                 renderView();
+            });
+
+            document.getElementById('library-search-input').addEventListener('input', (e) => {
+                activeSearchQuery = e.target.value.toLowerCase();
+                renderPlaybooksGrid();
             });
 
             btnCreateFolder.addEventListener('click', async () => {
@@ -377,6 +388,7 @@
                 const btnFix = document.getElementById('btn-fix-thumbnails');
                 if (btnFix) btnFix.style.display = 'none';
                 libraryFilters.style.display = 'none';
+                document.getElementById('library-search-container').style.display = 'none';
                 libraryGrid.innerHTML = '';
 
                 libraryGrid.appendChild(createFolderCard('ALL', 'Tous les schémas', iconAll, allPlaybooks.length));
@@ -440,7 +452,12 @@
                     filteredPlaybooks = filteredPlaybooks.filter(pb => pb.tagIds && pb.tagIds.includes(activeFilterTagId));
                 }
 
+                if (activeSearchQuery.trim() !== '') {
+                    filteredPlaybooks = filteredPlaybooks.filter(pb => (pb.name || 'Sans nom').toLowerCase().includes(activeSearchQuery));
+                }
+
                 renderFiltersInFolder();
+                document.getElementById('library-search-container').style.display = 'block';
 
                 if (filteredPlaybooks.length === 0) {
                     libraryGrid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; padding: 40px; opacity:0.6; font-size:1.2em;">Aucun schéma dans cette vue.</p>';
@@ -551,25 +568,26 @@
                         label.className = 'checkbox-label';
                         label.innerHTML = `<input type="checkbox" class="folder-checkbox" value="${folder.id}" ${isChecked ? 'checked' : ''}><span>${folder.name}</span>`;
                         
-                        // Si on coche/décoche un dossier, on met à jour la liste des tags en dessous !
                         label.querySelector('input').addEventListener('change', () => renderAssignTagsSection(playbookTagIds));
                         assignFoldersList.appendChild(label);
                     });
                 }
 
-                renderAssignTagsSection(playbookTagIds);
+                renderAssignTagsSection(playbookTagIds, true);
                 assignModal.classList.remove('hidden');
             }
 
             // Génération dynamique des tags selon les dossiers cochés
-            function renderAssignTagsSection(playbookTagIds) {
+            function renderAssignTagsSection(playbookTagIds, isInit = false) {
                 const assignTagsList = document.getElementById('assign-tags-list');
                 
-                // Mémoriser les tags déjà cochés dans la modale avant de la redessiner
-                document.querySelectorAll('.tag-checkbox').forEach(cb => {
-                    const tId = parseInt(cb.value, 10);
-                    if (cb.checked) playbookTagIds.add(tId); else playbookTagIds.delete(tId);
-                });
+                if (!isInit) {
+                    // Mémoriser les tags déjà cochés dans la modale avant de la redessiner
+                    document.querySelectorAll('.tag-checkbox').forEach(cb => {
+                        const tId = parseInt(cb.value, 10);
+                        if (cb.checked) playbookTagIds.add(tId); else playbookTagIds.delete(tId);
+                    });
+                }
 
                 assignTagsList.innerHTML = '';
                 const selectedFolderIds = Array.from(document.querySelectorAll('.folder-checkbox:checked')).map(cb => parseInt(cb.value, 10));
