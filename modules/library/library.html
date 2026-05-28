@@ -459,12 +459,16 @@
                 renderFiltersInFolder();
                 document.getElementById('library-search-container').style.display = 'block';
 
+                let fIdSort = (typeof currentFolderId === 'number') ? currentFolderId : 'root';
+                if (currentFolderId === 'ALL') fIdSort = 'all';
+                filteredPlaybooks = ORBReorder.sort([...filteredPlaybooks].reverse(), `playbooks_${fIdSort}`);
+
                 if (filteredPlaybooks.length === 0) {
                     libraryGrid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; padding: 40px; opacity:0.6; font-size:1.2em;">Aucun schéma dans cette vue.</p>';
                     return;
                 }
 
-                filteredPlaybooks.reverse().forEach(playbook => {
+                filteredPlaybooks.forEach(playbook => {
                     libraryGrid.appendChild(createPlaybookCard(playbook));
                 });
             }

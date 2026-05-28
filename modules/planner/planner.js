@@ -207,7 +207,7 @@ const PlannerModule = {
         
         let fIdSort = (typeof this.currentPlanFolderId === 'number') ? this.currentPlanFolderId : 'root';
         if (this.currentPlanFolderId === 'ALL') fIdSort = 'all';
-        filteredPlans = ORBReorder.sort(filteredPlans, `plans_${fIdSort}`);
+        filteredPlans = ORBReorder.sort([...filteredPlans], `plans_${fIdSort}`);
 
         this.renderPlanFilters(fIdSort);
 

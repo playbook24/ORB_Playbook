@@ -344,7 +344,8 @@ const CalendarModule = {
 
     async openPlanPicker() {
         this.allPlans = await orbDB.getAllPlans();
-        this.allPlanFolders = await orbDB.getAllPlanFolders();
+        const pFolders = await orbDB.getAllPlanFolders();
+        this.allPlanFolders = ORBReorder.sort(pFolders || [], 'planFolders');
         this.pickerViewMode = 'FOLDERS';
         this.currentPickerFolderId = null;
         this.renderPlanPicker();
@@ -407,10 +408,14 @@ const CalendarModule = {
                 filteredPlans = filteredPlans.filter(p => p.folderIds && p.folderIds.includes(this.currentPickerFolderId));
             }
 
+            let fIdSort = (typeof this.currentPickerFolderId === 'number') ? this.currentPickerFolderId : 'root';
+            if (this.currentPickerFolderId === 'ALL') fIdSort = 'all';
+            filteredPlans = ORBReorder.sort([...filteredPlans], `plans_${fIdSort}`);
+
             if (filteredPlans.length === 0) {
                 this.planPickerList.innerHTML = '<p style="text-align:center; opacity:0.6; padding:20px;">Aucune séance dans ce dossier.</p>';
             } else {
-                filteredPlans.reverse().forEach(plan => {
+                filteredPlans.forEach(plan => {
                     const div = document.createElement('div');
                     div.style.cssText = "padding: 15px; border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; background: var(--color-background); transition: all 0.2s;";
                     div.innerHTML = `<h4 style="margin:0; color:var(--color-primary);">${plan.name}</h4><p style="margin:5px 0 0 0; font-size:0.85em; opacity:0.7;">${plan.playbookIds.length} exercices</p>`;

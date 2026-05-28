@@ -12,6 +12,36 @@ const ORBSync = {
     fileId: null,
     isManualLogin: false,
 
+    showConnectedIndicator: function() {
+        let indicator = document.getElementById('drive-connected-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'drive-connected-indicator';
+            indicator.style.position = 'fixed';
+            indicator.style.top = '15px';
+            indicator.style.right = '20px';
+            indicator.style.display = 'flex';
+            indicator.style.alignItems = 'center';
+            indicator.style.gap = '8px';
+            indicator.style.background = 'rgba(255,255,255,0.05)';
+            indicator.style.padding = '8px 12px';
+            indicator.style.borderRadius = '20px';
+            indicator.style.border = '1px solid var(--color-primary)';
+            indicator.style.color = 'var(--color-primary)';
+            indicator.style.fontSize = '0.9em';
+            indicator.style.fontWeight = 'bold';
+            indicator.style.zIndex = '10000';
+            indicator.innerHTML = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor;"><path d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,4.73 12.2,4.73C15.29,4.73 17.1,6.7 17.1,6.7L19,4.72C19,4.72 16.56,2 12.1,2C6.42,2 2.03,6.8 2.03,12C2.03,17.05 6.16,22 12.25,22C17.6,22 21.5,18.33 21.5,12.91C21.5,11.76 21.35,11.1 21.35,11.1V11.1Z"/></svg> Connecté`;
+            document.body.appendChild(indicator);
+        }
+        indicator.style.display = 'flex';
+    },
+
+    hideConnectedIndicator: function() {
+        let indicator = document.getElementById('drive-connected-indicator');
+        if (indicator) indicator.style.display = 'none';
+    },
+
     // 1. INJECTION AUTOMATIQUE DES OUTILS GOOGLE
     injectGoogleScripts: function() {
         return new Promise((resolve) => {
@@ -143,17 +173,11 @@ const ORBSync = {
         if(loginText) loginText.textContent = "Drive (Connecté)";
         if(actions) actions.style.display = 'flex';
         
+        this.showConnectedIndicator();
         await this.findOrCreateBackupFile();
 
         if (this.isManualLogin) {
             this.isManualLogin = false;
-            setTimeout(() => {
-                if (confirm("Connexion Drive réussie !\n\nVoulez-vous charger la base de données sauvegardée sur votre Cloud vers cet appareil ?\n\n(Attention : Vos données locales actuelles seront écrasées)")) {
-                    const pullBtn = document.getElementById('btn-drive-pull');
-                    if (pullBtn) pullBtn.click();
-                    else this.downloadFromDrive();
-                }
-            }, 500);
         }
     },
 
@@ -161,6 +185,7 @@ const ORBSync = {
         this.accessToken = null;
         this.fileId = null;
         sessionStorage.removeItem('orb_drive_token');
+        this.hideConnectedIndicator();
         
         const loginText = document.getElementById('drive-login-text');
         const actions = document.getElementById('drive-actions');
@@ -310,6 +335,13 @@ const ORBSync = {
             return false;
         }
     }
+};
+
+const originalClear = sessionStorage.clear;
+sessionStorage.clear = function() {
+    const token = sessionStorage.getItem('orb_drive_token');
+    originalClear.apply(sessionStorage);
+    if (token) sessionStorage.setItem('orb_drive_token', token);
 };
 
 document.addEventListener('DOMContentLoaded', () => {
